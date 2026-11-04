@@ -18,6 +18,7 @@ const dashedBtn = 'border-[1.5px] border-dashed border-ink-mute bg-transparent f
 function WeekDropdown({ internship, week, lock }: { internship: Internship; week: Week; lock: Week | null }) {
   const [open, setOpen] = useState(false);
   const nowId = nowWeek(internship.weeks).id;
+  const off = (w: Week) => !!lock && w.number > lock.number;
   return (
     <div className="relative">
       <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-[60px] items-center gap-2.5 border-0 bg-transparent px-2 text-ink">
@@ -31,30 +32,27 @@ function WeekDropdown({ internship, week, lock }: { internship: Internship; week
       </svg>
       {open && (
         <div role="listbox" aria-label="Choose a week" className="absolute top-[76px] left-0 z-20 w-[300px] rounded-card bg-card p-2.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]">
-          {internship.weeks.map((w) => {
-            const off = !!lock && w.number > lock.number;
-            return (
+          {internship.weeks.map((w) => (
             <a
               key={w.id}
               href={`/weeks/${w.id}`}
               role="option"
               aria-selected={w.id === week.id}
-              aria-disabled={off}
+              aria-disabled={off(w)}
               onClick={(e) => {
                 e.preventDefault();
-                if (off) return;
+                if (off(w)) return;
                 setOpen(false);
                 go(`/weeks/${w.id}`);
               }}
-              className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.id === nowId ? 'bg-highlighter' : ''} ${off ? 'cursor-not-allowed opacity-40' : ''}`}
+              className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.id === nowId ? 'bg-highlighter' : ''} ${off(w) ? 'cursor-not-allowed opacity-40' : ''}`}
             >
               <span className="flex-none basis-[76px] font-hand text-[20px]">Week {w.number}</span>
               <span className="flex-1 font-hand text-base text-ink-soft">{shortDay(w.startDate)} to {shortDay(w.endDate)}</span>
               {w.endDate < internship.trackingStartDate && <span className="font-hand text-sm text-ink-mute">backfill</span>}
               {w.reflected && <span aria-label="reflected" className="font-hand text-[20px]">✓</span>}
             </a>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>
