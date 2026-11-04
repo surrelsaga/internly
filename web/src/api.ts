@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type Week = { id: string; number: number; startDate: string; endDate: string };
+export type Week = { id: string; number: number; startDate: string; endDate: string; reflected: boolean };
 export type Internship = {
   id: string;
   company: string;
@@ -11,7 +11,8 @@ export type Internship = {
 };
 
 export type WeekTask = { id: string; title: string; done: boolean; fromWeek: number | null };
-export type WeekDetail = Week & { tasks: WeekTask[] };
+export type ReflectionData = { learnt: string; wentWell: string; needHelp: string };
+export type WeekDetail = Week & { tasks: WeekTask[]; reflection: ReflectionData };
 
 export class ApiError extends Error {
   constructor(
