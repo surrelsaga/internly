@@ -60,3 +60,56 @@
   background-attachment: local;
   line-height: 32px;
 }
+
+/* TipTap note body: the mock's block styles on what the editor renders. No max height, the page grows. */
+.note-body p {
+  margin-bottom: 14px;
+}
+.note-body h1,
+.note-body h2,
+.note-body h3 {
+  margin: 26px 0 8px;
+  font-family: var(--font-caveat);
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+.note-body ul {
+  margin-bottom: 14px;
+  padding-left: 22px;
+  list-style: disc;
+}
+.note-body li {
+  margin-bottom: 6px;
+}
+.note-body li > p {
+  margin-bottom: 0;
+}
+.note-body pre {
+  margin: 6px 0 16px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--color-code);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.note-body code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.9em;
+}
+.note-body a {
+  color: var(--color-blue);
+  text-decoration: underline;
+}
+.note-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0 18px;
+  border-radius: 8px;
+}
+.note-body img.ProseMirror-selectednode {
+  outline: 3px solid var(--color-blue);
+}

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Week, type WeekDetail } from './api';
-import { devNotes, researchNotes, type Block } from './fake';
+import NotesPanel from './NotesPanel';
 import TasksRail from './TasksRail';
-import { Marker, Tape, Wobble } from './ui';
+import { dashedBtn, Marker, Tape, Wobble } from './ui';
 
 type Tab = 'dev' | 'research' | 'reflection';
 
@@ -12,8 +12,6 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'research', label: 'research notes' },
   { id: 'reflection', label: 'reflection' },
 ];
-
-const dashedBtn = 'border-[1.5px] border-dashed border-ink-mute bg-transparent font-hand text-ink-soft';
 
 function WeekDropdown({ internship, week, lock }: { internship: Internship; week: Week; lock: Week | null }) {
   const [open, setOpen] = useState(false);
@@ -55,103 +53,6 @@ function WeekDropdown({ internship, week, lock }: { internship: Internship; week
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-const toolBtn = 'flex size-11 items-center justify-center rounded-[9px] border-[1.5px] border-ink/55 bg-transparent p-0 text-ink';
-
-function Toolbar() {
-  return (
-    <div className="sticky top-0 z-[5] flex flex-wrap items-center justify-between gap-2.5 rounded-t-[14px_10px] border-b-[1.5px] border-dashed border-ink/35 bg-paper/95 px-7 py-3">
-      <div role="toolbar" aria-label="Formatting" className="flex flex-wrap gap-2">
-        <button type="button" aria-label="Bold" className={`${toolBtn} font-sans text-[17px] font-medium`}>B</button>
-        <button type="button" aria-label="Italic" className={`${toolBtn} font-sans text-[17px] italic`}>I</button>
-        <button type="button" aria-label="Add link" className={toolBtn}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M10 14 a4 4 0 0 0 5.7 0 l3-3 a4 4 0 0 0 -5.7 -5.7 l-1 1 M14 10 a4 4 0 0 0 -5.7 0 l-3 3 a4 4 0 0 0 5.7 5.7 l1 -1" stroke="#2A2520" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <button type="button" aria-label="Add image" className={toolBtn}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="3" y="4.5" width="18" height="15" rx="2.5" stroke="#2A2520" strokeWidth="1.9" />
-            <circle cx="9" cy="10" r="1.8" stroke="#2A2520" strokeWidth="1.7" />
-            <path d="M4 17 L9.5 12.5 L13 15.5 L16 13 L20.5 17" stroke="#2A2520" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <button type="button" aria-label="Bulleted list" className={toolBtn}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="5" cy="7" r="1.3" fill="#2A2520" />
-            <circle cx="5" cy="12" r="1.3" fill="#2A2520" />
-            <circle cx="5" cy="17" r="1.3" fill="#2A2520" />
-            <path d="M10 7 H20 M10 12 H20 M10 17 H20" stroke="#2A2520" strokeWidth="1.9" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-      <span className="font-hand text-[17px] text-ink-soft">saved 2 min ago</span>
-    </div>
-  );
-}
-
-function BlockView({ b }: { b: Block }) {
-  switch (b.k) {
-    case 'h':
-      return <h3 className="mt-[26px] mb-2 font-caveat text-[32px] leading-[1.1] font-bold">{b.text}</h3>;
-    case 'p':
-      return <p className="mb-3.5">{b.text}</p>;
-    case 'li':
-      return (
-        <div className="mb-1.5 flex gap-3 pl-1.5">
-          <span aria-hidden="true">•</span>
-          <span className="min-w-0 flex-auto">{b.text}</span>
-        </div>
-      );
-    case 'code':
-      return <pre className="mt-1.5 mb-4 overflow-x-auto rounded-lg bg-code px-[18px] py-3.5 font-[ui-monospace,Menlo,monospace] text-sm leading-[1.6]">{b.text}</pre>;
-    case 'img':
-      return (
-        <div className="mt-2 mb-[18px] flex h-[190px] max-w-full items-center justify-center rounded-lg border-[1.5px] border-ink/35 bg-img">
-          <span className="font-hand text-[18px] text-ink-soft">{b.text}</span>
-        </div>
-      );
-  }
-}
-
-type Active = Record<'dev' | 'research', number>;
-
-function Notes({ tab, active, setActive }: { tab: 'dev' | 'research'; active: Active; setActive: (a: Active) => void }) {
-  const list = tab === 'dev' ? devNotes : researchNotes;
-  const note = list[active[tab]];
-  return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        {list.map((n, i) => {
-          const on = i === active[tab];
-          return (
-            <button
-              key={n.title}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setActive({ ...active, [tab]: i })}
-              className={`min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${on ? 'bg-highlighter' : 'bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`}
-            >
-              {n.title}
-            </button>
-          );
-        })}
-        <button type="button" className={`min-h-11 rounded-full px-4 text-[19px] ${dashedBtn}`}>+ new note</button>
-      </div>
-      <article className="relative pb-14">
-        <Wobble />
-        <Toolbar />
-        <div className="px-11 pt-[30px] font-sans [overflow-wrap:anywhere] text-base leading-[1.75]">
-          <h2 className="mb-[18px] font-caveat text-[48px] leading-[1.05] font-bold">{note.title}</h2>
-          {note.blocks.map((b, i) => (
-            <BlockView key={i} b={b} />
-          ))}
-          <p className="mt-[26px] font-hand text-[18px] text-ink-mute">keep typing here. The page just gets longer, there is no box to scroll.</p>
-        </div>
-      </article>
     </div>
   );
 }
@@ -248,8 +149,8 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
   const [tab, setTab] = useState<Tab>(() => (locked || new URLSearchParams(location.search).get('tab') === 'reflection' ? 'reflection' : 'dev'));
   const detail = useQuery({ queryKey: ['week', week.id], queryFn: () => api<WeekDetail>(`/weeks/${week.id}`) });
   const tasks = detail.data?.tasks ?? [];
-  // lives here so the chosen note survives a trip to the reflection tab
-  const [active, setActive] = useState<Active>({ dev: 0, research: 0 });
+  // lives here so the chosen note (by id) survives a trip to the reflection tab
+  const [active, setActive] = useState<Record<string, string>>({});
   return (
     <main className="mx-auto max-w-[1240px] px-8 pt-7">
       <section aria-label="Week" className="flex flex-wrap items-center gap-x-7 gap-y-3.5">
@@ -285,12 +186,12 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
 
       <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
         <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">
-          {tab !== 'reflection' ? (
-            <Notes tab={tab} active={active} setActive={setActive} />
-          ) : detail.data ? (
+          {!detail.data ? (
+            <p className="font-hand text-[23px]">loading…</p>
+          ) : tab === 'reflection' ? (
             <Reflection week={week} initial={detail.data.reflection} locked={locked} />
           ) : (
-            <p className="font-hand text-[23px]">loading…</p>
+            <NotesPanel weekId={week.id} type={tab} notes={detail.data.notes} activeId={active[tab]} setActiveId={(id) => setActive({ ...active, [tab]: id })} />
           )}
         </div>
         <TasksRail week={week} tasks={tasks} />

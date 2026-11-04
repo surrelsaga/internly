@@ -43,6 +43,8 @@ export function Checkbox({ checked, label, onToggle }: { checked: boolean; label
   );
 }
 
+export const dashedBtn = 'border-[1.5px] border-dashed border-ink-mute bg-transparent font-hand text-ink-soft';
+
 export function Tape({ className }: { className: string }) {
   return <div aria-hidden="true" className={`absolute ${className}`} />;
 }
