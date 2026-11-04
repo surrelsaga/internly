@@ -50,7 +50,8 @@ export const todaySg = () => new Date(Date.now() + 8 * 3_600_000).toISOString().
 
 const fmt = (day: string, opts: Intl.DateTimeFormatOptions) => new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
 export const shortDay = (day: string) => fmt(day, { day: 'numeric', month: 'short' });
-export const longRange = (w: Week) => `${fmt(w.startDate, { weekday: 'short', day: 'numeric', month: 'short' })} to ${fmt(w.endDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`;
+const withWeekday = (day: string) => `${fmt(day, { weekday: 'short' })} ${shortDay(day)}`;
+export const longRange = (w: Week) => `${withWeekday(w.startDate)} to ${withWeekday(w.endDate)} ${w.endDate.slice(0, 4)}`;
 
 // 1 to 5 for Mon to Fri; the weekend counts as day 5. Null if today is outside the week.
 export function dayOfWeek(w: Week, today = todaySg()) {
