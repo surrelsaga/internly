@@ -1,0 +1,90 @@
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
+import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { DataSource } from 'typeorm';
+import { CurrentUser } from '../auth/current-user.js';
+import { User } from '../users/user.entity.js';
+import { Internship, Week } from './internship.entity.js';
+import { currentWeek, generateWeeks } from './weeks.js';
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const isRealDay = (s: string) => !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s;
+const MAX_WEEKS = 120;
+
+class CreateInternshipDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  company: string;
+
+  @Matches(DAY)
+  startDate: string;
+
+  @Matches(DAY)
+  endDate: string;
+}
+
+// A uuid that matches nothing is a 404, not a 400.
+const weekId = new ParseUUIDPipe({ errorHttpStatusCode: 404 });
+
+@Controller()
+export class InternshipController {
+  constructor(private ds: DataSource) {}
+
+  @Post('internship')
+  async create(@CurrentUser() user: User, @Body() dto: CreateInternshipDto) {
+    if (!isRealDay(dto.startDate) || !isRealDay(dto.endDate)) throw new BadRequestException('Not a real date');
+    if (dto.endDate <= dto.startDate) throw new BadRequestException('End must come after start');
+    const spans = generateWeeks(dto.startDate, dto.endDate);
+    if (spans.length > MAX_WEEKS) throw new BadRequestException('Internship is too long');
+
+    if (await this.ds.getRepository(Internship).existsBy({ userId: user.id })) {
+      throw new ConflictException('Internship already set up');
+    }
+    // Backfill = weeks before the current one (or none if it hasn't started).
+    const trackingStartDate = currentWeek(spans, new Date()).startDate;
+    await this.ds.transaction(async (m) => {
+      const internship = await m.save(Internship, { ...dto, userId: user.id, trackingStartDate, lastEmailedWeekId: null });
+      await m.insert(Week, spans.map((s) => ({ ...s, internshipId: internship.id })));
+    });
+    return this.get(user);
+  }
+
+  @Get('internship')
+  async get(@CurrentUser() user: User) {
+    const internship = await this.ds.getRepository(Internship).findOneBy({ userId: user.id });
+    if (!internship) throw new NotFoundException();
+    const weeks = await this.ds.getRepository(Week).find({ where: { internshipId: internship.id }, order: { number: 'ASC' } });
+    return { ...internship, weeks };
+  }
+
+  // Declared before :id so ':id' doesn't swallow it.
+  @Get('weeks/current')
+  async current(@CurrentUser() user: User) {
+    const { weeks } = await this.get(user);
+    return currentWeek(weeks, new Date());
+  }
+
+  @Get('weeks/:id')
+  async week(@CurrentUser() user: User, @Param('id', weekId) id: string) {
+    const week = await this.ds
+      .getRepository(Week)
+      .createQueryBuilder('w')
+      .innerJoin(Internship, 'i', 'i.id = w.internshipId')
+      .where('w.id = :id AND i.userId = :userId', { id, userId: user.id })
+      .getOne();
+    if (!week) throw new NotFoundException();
+    return week;
+  }
+}

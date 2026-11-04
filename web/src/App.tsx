@@ -1,3 +1,7 @@
+import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api, ApiError, go, nowWeek, usePath, type Internship } from './api';
+import Setup from './Setup';
 import { WobbleButton, WobbleFilter } from './ui';
 import WeekPage from './WeekPage';
 
@@ -37,12 +41,41 @@ function Header() {
   );
 }
 
+const note = 'mx-auto max-w-[1240px] px-8 pt-7 font-hand text-[23px]';
+
+function Body() {
+  const path = usePath();
+  const internship = useQuery({
+    queryKey: ['internship'],
+    queryFn: () => api<Internship>('/internship').catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
+  });
+  const weekId = path.match(/^\/weeks\/([^/]+)\/?$/)?.[1];
+  // Anything that isn't a week page opens the current week.
+  useEffect(() => {
+    if (internship.data && !weekId) go(`/weeks/${nowWeek(internship.data.weeks).id}`, true);
+  }, [internship.data, weekId]);
+
+  if (internship.isPending) return <p className={note}>loading…</p>;
+  if (internship.error) return <p role="alert" className={note}>Could not load: {internship.error.message}</p>;
+  if (!internship.data) return <Setup />;
+  if (!weekId) return <p className={note}>loading…</p>;
+  const week = internship.data.weeks.find((w) => w.id === weekId);
+  if (!week) {
+    return (
+      <p className={note}>
+        That week does not exist. <a href="/" className="underline" onClick={(e) => { e.preventDefault(); go('/'); }}>Back to this week</a>
+      </p>
+    );
+  }
+  return <WeekPage key={week.id} internship={internship.data} week={week} />;
+}
+
 export default function App() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-paper bg-[radial-gradient(rgba(42,37,32,0.07)_1px,transparent_1px)] bg-[length:24px_24px] pb-[72px] font-sans text-ink">
       <WobbleFilter />
       <Header />
-      <WeekPage />
+      <Body />
     </div>
   );
 }
