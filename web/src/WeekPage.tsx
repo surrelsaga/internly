@@ -274,10 +274,13 @@ export default function WeekPage({ internship, week }: { internship: Internship;
       </div>
 
       <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
-        <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">{tab === 'reflection' ? (
-            detail.data ? <Reflection week={week} initial={detail.data.reflection} /> : <p className="font-hand text-[23px]">loading…</p>
+        <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">
+          {tab !== 'reflection' ? (
+            <Notes tab={tab} active={active} setActive={setActive} />
+          ) : detail.data ? (
+            <Reflection week={week} initial={detail.data.reflection} />
           ) : (
-<Notes tab={tab} active={active} setActive={setActive} />
+            <p className="font-hand text-[23px]">loading…</p>
           )}
         </div>
         <TasksRail week={week} tasks={tasks} />
