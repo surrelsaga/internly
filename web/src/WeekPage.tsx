@@ -178,8 +178,6 @@ function Reflection({ week, initial }: { week: Week; initial: ReflectionData }) 
     setStatus('saving');
     try {
       await api(`/weeks/${week.id}/reflection`, body, 'PUT');
-      // keep the cached week fresh, so coming back to this tab shows what was typed
-      qc.setQueryData<WeekDetail>(['week', week.id], (d) => d && { ...d, reflection: { ...d.reflection, ...body } });
       if ('learnt' in body) qc.invalidateQueries({ queryKey: ['internship'] });
       setStatus(Object.keys(pending.current).length ? 'saving' : 'saved');
     } catch {
@@ -195,6 +193,8 @@ function Reflection({ week, initial }: { week: Week; initial: ReflectionData }) 
   const change = (key: keyof ReflectionData, value: string) => {
     setValues((v) => ({ ...v, [key]: value }));
     pending.current[key] = value;
+    // keep the cached week current, so leaving and coming back to this tab shows what was typed
+    qc.setQueryData<WeekDetail>(['week', week.id], (d) => d && { ...d, reflection: { ...d.reflection, [key]: value } });
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, 800);
   };
