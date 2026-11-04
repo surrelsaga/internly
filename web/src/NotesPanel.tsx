@@ -189,7 +189,7 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
         editor={editor}
         status={status}
         onImage={(f) => void upload(f, (src) => editor.chain().focus().setImage({ src }).run())}
-        refine={<RefineButton label="Refine selected text" busy={refine.busy} disabled={!selected.trim()} onClick={ask} className="!min-h-11" />}
+        refine={<RefineButton label="Refine selected text" busy={refine.busy} disabled={!selected.trim()} onClick={ask} />}
       />
       <div className="px-11 pt-3 font-hand text-base text-ink-mute">
         {REFINE_HINT} Select some text first.

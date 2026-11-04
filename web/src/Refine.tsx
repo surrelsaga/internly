@@ -35,9 +35,9 @@ export function useRefine() {
   return { busy, suggestion, error, run, clear, fail };
 }
 
-export function RefineButton({ busy, disabled, label, onClick, className = '' }: { busy: boolean; disabled?: boolean; label: string; onClick: () => void; className?: string }) {
+export function RefineButton({ busy, disabled, label, onClick }: { busy: boolean; disabled?: boolean; label: string; onClick: () => void }) {
   return (
-    <button type="button" aria-label={label} title={REFINE_HINT} disabled={busy || disabled} onClick={onClick} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-[17px] disabled:opacity-50 ${dashedBtn} ${className}`}>
+    <button type="button" aria-label={label} title={REFINE_HINT} disabled={busy || disabled} onClick={onClick} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-[17px] disabled:opacity-50 ${dashedBtn}`}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M4 20 L5 15 L16.5 3.5 a2.1 2.1 0 0 1 3 3 L8 18 Z M14.5 5.5 L18.5 9.5" stroke="#4A4540" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
