@@ -1,0 +1,8 @@
+{
+  "name": "internly",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix web install --include=dev && npm --prefix web run build && npm --prefix api install --include=dev && npm --prefix api run build",
+    "start": "cd api && npx typeorm migration:run -d dist/data-source.js && node dist/main.js"
+  }
+}
