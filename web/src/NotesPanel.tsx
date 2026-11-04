@@ -37,7 +37,8 @@ function Toolbar({ editor, status, onImage }: { editor: Editor; status: Status; 
   };
   return (
     <div className="sticky top-0 z-[5] flex flex-wrap items-center justify-between gap-2.5 rounded-t-[14px_10px] border-b-[1.5px] border-dashed border-ink/35 bg-paper/95 px-7 py-3">
-      <div role="toolbar" aria-label="Formatting" className="flex flex-wrap gap-2">
+      {/* Keep the caret in the editor when a toolbar button is pressed. */}
+      <div role="toolbar" aria-label="Formatting" onMouseDown={(e) => e.preventDefault()} className="flex flex-wrap gap-2">
         <button type="button" aria-label="Bold" aria-pressed={s.bold} onClick={() => editor.chain().focus().toggleBold().run()} className={`${toolBtn} font-sans text-[17px] font-medium ${s.bold ? on : ''}`}>B</button>
         <button type="button" aria-label="Italic" aria-pressed={s.italic} onClick={() => editor.chain().focus().toggleItalic().run()} className={`${toolBtn} font-sans text-[17px] italic ${s.italic ? on : ''}`}>I</button>
         <button type="button" aria-label="Add link" aria-pressed={s.link} onClick={link} className={`${toolBtn} ${s.link ? on : ''}`}>
@@ -108,10 +109,19 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
   // Leaving the note, tab or week saves what's still waiting.
   const flushRef = useRef(flush);
   flushRef.current = flush;
-  useEffect(() => () => void flushRef.current(), []);
+  useEffect(() => {
+    // ponytail: best-effort save on reload/close; no keepalive, since it caps the body at 64KB and long notes would fail.
+    const onHide = () => void flushRef.current();
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      void flushRef.current();
+    };
+  }, []);
 
   const queue = (p: { title?: string; content?: object }) => {
     Object.assign(pending.current, p);
+    setStatus('saving');
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, 800);
   };
