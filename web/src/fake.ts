@@ -90,17 +90,6 @@ export const tasks: Task[] = [
   { id: 5, title: 'Test the onboarding flow with a fake webhook payload', from: 0, done: true },
 ];
 
-export type WeekState = 'empty' | 'done' | 'now' | 'next';
-
-export const weeks: { n: number; dates: string; state: WeekState }[] = [
-  { n: 1, dates: '5 Oct to 11 Oct', state: 'empty' },
-  { n: 2, dates: '12 Oct to 18 Oct', state: 'done' },
-  { n: 3, dates: '19 Oct to 25 Oct', state: 'empty' },
-  { n: 4, dates: '26 Oct to 1 Nov', state: 'empty' },
-  { n: 5, dates: '2 Nov to 8 Nov', state: 'now' },
-  { n: 6, dates: '9 Nov to 15 Nov', state: 'next' },
-];
-
 export const reflectionFields = [
   {
     id: 'refl-learnt',

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { devNotes, reflectionFields, researchNotes, tasks as fakeTasks, weeks, type Block, type Task } from './fake';
+import { dayOfWeek, go, longRange, shortDay, todaySg, type Internship, type Week } from './api';
+import { devNotes, reflectionFields, researchNotes, tasks as fakeTasks, type Block, type Task } from './fake';
 import { Checkbox, Marker, Tape, Wobble } from './ui';
 
 type Tab = 'dev' | 'research' | 'reflection';
@@ -12,12 +13,14 @@ const tabs: { id: Tab; label: string }[] = [
 
 const dashedBtn = 'border-[1.5px] border-dashed border-ink-mute bg-transparent font-hand text-ink-soft';
 
-function WeekDropdown() {
+function WeekDropdown({ internship, week }: { internship: Internship; week: Week }) {
   const [open, setOpen] = useState(false);
+  const today = todaySg();
+  const nowId = (internship.weeks.find((w) => today <= w.endDate) ?? internship.weeks[internship.weeks.length - 1]).id;
   return (
     <div className="relative">
       <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-[60px] items-center gap-2.5 border-0 bg-transparent px-2 text-ink">
-        <span className="font-caveat text-[64px] leading-none font-bold">Week 5</span>
+        <span className="font-caveat text-[64px] leading-none font-bold">Week {week.number}</span>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-3.5">
           <path d="M5 9 L12 16 L19 9" stroke="#2A2520" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -27,22 +30,22 @@ function WeekDropdown() {
       </svg>
       {open && (
         <div role="listbox" aria-label="Choose a week" className="absolute top-[76px] left-0 z-20 w-[300px] rounded-card bg-card p-2.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]">
-          {weeks.map((w) => (
+          {internship.weeks.map((w) => (
             <a
-              key={w.n}
-              href="#top"
+              key={w.id}
+              href={`/weeks/${w.id}`}
               role="option"
-              aria-selected={w.state === 'now'}
+              aria-selected={w.id === week.id}
               onClick={(e) => {
                 e.preventDefault();
                 setOpen(false);
+                go(`/weeks/${w.id}`);
               }}
-              className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.state === 'now' ? 'bg-highlighter' : ''}`}
+              className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.id === nowId ? 'bg-highlighter' : ''}`}
             >
-              <span className="flex-none basis-[76px] font-hand text-[20px]">Week {w.n}</span>
-              <span className="flex-1 font-hand text-base text-ink-soft">{w.dates}</span>
-              {w.state === 'done' && <span aria-label="reflected" className="text-[18px]">✓</span>}
-              {w.state === 'empty' && <span className="font-hand text-sm text-ink-mute">backfill</span>}
+              <span className="flex-none basis-[76px] font-hand text-[20px]">Week {w.number}</span>
+              <span className="flex-1 font-hand text-base text-ink-soft">{shortDay(w.startDate)} to {shortDay(w.endDate)}</span>
+              {w.endDate < internship.trackingStartDate && <span className="font-hand text-sm text-ink-mute">backfill</span>}
             </a>
           ))}
         </div>
@@ -231,7 +234,8 @@ function TasksRail({ tasks, setTasks }: { tasks: Task[]; setTasks: (t: Task[]) =
   );
 }
 
-export default function WeekPage() {
+export default function WeekPage({ internship, week }: { internship: Internship; week: Week }) {
+  const day = dayOfWeek(week);
   const [tab, setTab] = useState<Tab>('dev');
   const [tasks, setTasks] = useState<Task[]>(fakeTasks);
   // lives here so the chosen note survives a trip to the reflection tab
@@ -239,10 +243,10 @@ export default function WeekPage() {
   return (
     <main className="mx-auto max-w-[1240px] px-8 pt-7">
       <section aria-label="Week" className="flex flex-wrap items-center gap-x-7 gap-y-3.5">
-        <WeekDropdown />
+        <WeekDropdown internship={internship} week={week} />
         <div className="flex flex-col gap-1">
-          <span className="font-hand text-[23px]">Mon 2 Nov to Sun 8 Nov 2026</span>
-          <span className="font-hand text-[17px] text-ink-soft">Speedback, day 3 of 5</span>
+          <span className="font-hand text-[23px]">{longRange(week)}</span>
+          <span className="font-hand text-[17px] text-ink-soft">{day ? `${internship.company}, day ${day} of 5` : internship.company}</span>
         </div>
         <span className="rounded-tab bg-highlighter px-4 py-1 font-hand text-[19px]">{tasks.filter((t) => t.done).length} of {tasks.length} ticked</span>
       </section>
