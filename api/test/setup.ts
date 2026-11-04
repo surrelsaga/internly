@@ -10,6 +10,7 @@ try {
   // no .env file, fine
 }
 useTestDatabase(process.env);
+process.env.JWT_SECRET ||= 'test-secret';
 
 beforeAll(async () => {
   const { dataSource } = await import('../src/data-source.js');
