@@ -109,9 +109,10 @@ function BlockView({ b }: { b: Block }) {
   }
 }
 
-function Notes({ tab }: { tab: 'dev' | 'research' }) {
+type Active = Record<'dev' | 'research', number>;
+
+function Notes({ tab, active, setActive }: { tab: 'dev' | 'research'; active: Active; setActive: (a: Active) => void }) {
   const list = tab === 'dev' ? devNotes : researchNotes;
-  const [active, setActive] = useState({ dev: 0, research: 0 });
   const note = list[active[tab]];
   return (
     <div>
@@ -196,7 +197,7 @@ function TasksRail({ tasks, setTasks }: { tasks: Task[]; setTasks: (t: Task[]) =
     setTitle('');
   };
   return (
-    <aside aria-labelledby="tasks-title" className="sticky top-4 max-w-[340px] flex-[1_1_280px] self-start max-[900px]:static max-[900px]:order-first min-[901px]:order-2">
+    <aside aria-labelledby="tasks-title" className="order-first max-w-[340px] min-[901px]:sticky min-[901px]:top-4 min-[901px]:order-none min-[901px]:flex-[1_1_280px] min-[901px]:self-start">
       <div className="relative -rotate-[0.4deg] px-[22px] pt-[34px] pb-[22px]">
         <Wobble />
         <Tape className="-top-[13px] left-1/2 -ml-11 h-[26px] w-[88px] -rotate-[2.5deg] bg-[rgba(196,169,125,0.45)]" />
@@ -233,6 +234,8 @@ function TasksRail({ tasks, setTasks }: { tasks: Task[]; setTasks: (t: Task[]) =
 export default function WeekPage() {
   const [tab, setTab] = useState<Tab>('dev');
   const [tasks, setTasks] = useState<Task[]>(fakeTasks);
+  // lives here so the chosen note survives a trip to the reflection tab
+  const [active, setActive] = useState<Active>({ dev: 0, research: 0 });
   return (
     <main className="mx-auto max-w-[1240px] px-8 pt-7">
       <section aria-label="Week" className="flex flex-wrap items-center gap-x-7 gap-y-3.5">
@@ -260,8 +263,8 @@ export default function WeekPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-start gap-9">
-        <div className="max-w-[820px] min-w-0 flex-[999_1_560px]">{tab === 'reflection' ? <Reflection /> : <Notes tab={tab} />}</div>
+      <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
+        <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">{tab === 'reflection' ? <Reflection /> : <Notes tab={tab} active={active} setActive={setActive} />}</div>
         <TasksRail tasks={tasks} setTasks={setTasks} />
       </div>
     </main>
