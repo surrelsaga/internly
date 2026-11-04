@@ -6,13 +6,15 @@ import { AuthController, GoogleStrategy } from './auth/auth.js';
 import { JwtGuard } from './auth/current-user.js';
 import { dataSource } from './data-source.js';
 import { InternshipController } from './internship/internship.controller.js';
+import { NotesController } from './notes/notes.controller.js';
+import { UploadsController } from './notes/uploads.controller.js';
 import { ReflectionController } from './reflection/reflection.controller.js';
 import { TasksController } from './tasks/tasks.controller.js';
 import { User } from './users/user.entity.js';
 
 @Module({
   imports: [TypeOrmModule.forRoot(dataSource.options), TypeOrmModule.forFeature([User])],
-  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController],
+  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController],
   providers: [
     GoogleStrategy,
     { provide: APP_GUARD, useClass: JwtGuard },
