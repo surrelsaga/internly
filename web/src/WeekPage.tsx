@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { dayOfWeek, go, longRange, shortDay, todaySg, type Internship, type Week } from './api';
+import { dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type Week } from './api';
 import { devNotes, reflectionFields, researchNotes, tasks as fakeTasks, type Block, type Task } from './fake';
 import { Checkbox, Marker, Tape, Wobble } from './ui';
 
@@ -15,8 +15,7 @@ const dashedBtn = 'border-[1.5px] border-dashed border-ink-mute bg-transparent f
 
 function WeekDropdown({ internship, week }: { internship: Internship; week: Week }) {
   const [open, setOpen] = useState(false);
-  const today = todaySg();
-  const nowId = (internship.weeks.find((w) => today <= w.endDate) ?? internship.weeks[internship.weeks.length - 1]).id;
+  const nowId = nowWeek(internship.weeks).id;
   return (
     <div className="relative">
       <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-[60px] items-center gap-2.5 border-0 bg-transparent px-2 text-ink">

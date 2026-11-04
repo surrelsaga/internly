@@ -53,6 +53,9 @@ export const shortDay = (day: string) => fmt(day, { day: 'numeric', month: 'shor
 const withWeekday = (day: string) => `${fmt(day, { weekday: 'short' })} ${shortDay(day)}`;
 export const longRange = (w: Week) => `${withWeekday(w.startDate)} to ${withWeekday(w.endDate)} ${w.endDate.slice(0, 4)}`;
 
+// Same rule as the API's currentWeek: first week not yet over, else the last.
+export const nowWeek = (weeks: Week[]) => weeks.find((w) => todaySg() <= w.endDate) ?? weeks[weeks.length - 1];
+
 // 1 to 5 for Mon to Fri; the weekend counts as day 5. Null if today is outside the week.
 export function dayOfWeek(w: Week, today = todaySg()) {
   if (today < w.startDate || today > w.endDate) return null;

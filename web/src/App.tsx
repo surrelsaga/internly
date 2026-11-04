@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api, ApiError, go, usePath, type Internship, type Week } from './api';
+import { api, ApiError, go, nowWeek, usePath, type Internship } from './api';
 import Setup from './Setup';
 import { WobbleButton, WobbleFilter } from './ui';
 import WeekPage from './WeekPage';
@@ -51,10 +51,9 @@ function Body() {
   });
   const weekId = path.match(/^\/weeks\/([^/]+)\/?$/)?.[1];
   // Anything that isn't a week page opens the current week.
-  const current = useQuery({ queryKey: ['weeks', 'current'], queryFn: () => api<Week>('/weeks/current'), enabled: !!internship.data && !weekId });
   useEffect(() => {
-    if (current.data && !weekId) go(`/weeks/${current.data.id}`, true);
-  }, [current.data, weekId]);
+    if (internship.data && !weekId) go(`/weeks/${nowWeek(internship.data.weeks).id}`, true);
+  }, [internship.data, weekId]);
 
   if (internship.isPending) return <p className={note}>loading…</p>;
   if (internship.error) return <p role="alert" className={note}>Could not load: {internship.error.message}</p>;
