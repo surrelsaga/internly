@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api, ApiError, go, usePath, type CurrentWeek, type Internship, type Me } from './api';
 import Login from './Login';
 import Setup from './Setup';
@@ -7,11 +7,10 @@ import { WobbleButton, WobbleFilter } from './ui';
 import WeekPage from './WeekPage';
 
 function Header() {
-  const qc = useQueryClient();
   const me = useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/auth/me') });
   const signOut = async () => {
     await api('/auth/logout', {});
-    qc.clear();
+    // ponytail: no cache clear; signing in again is a full page load, so the cache starts empty.
     go('/login');
   };
   return (
