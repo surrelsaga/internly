@@ -13,6 +13,7 @@ import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { DataSource, In } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
+import { Note } from '../notes/note.entity.js';
 import { pickReflection } from '../reflection/reflection.controller.js';
 import { Reflection } from '../reflection/reflection.entity.js';
 import { ownedWeek, weekTasks } from '../tasks/queries.js';
@@ -90,6 +91,7 @@ export class InternshipController {
     const week = await ownedWeek(this.ds, user.id, id);
     if (!week) throw new NotFoundException();
     const reflection = await this.ds.getRepository(Reflection).findOneBy({ weekId: week.id });
-    return { ...week, tasks: await weekTasks(this.ds, week), reflection: pickReflection(reflection) };
+    const notes = await this.ds.getRepository(Note).find({ where: { weekId: week.id }, order: { type: 'ASC', position: 'ASC' } });
+    return { ...week, tasks: await weekTasks(this.ds, week), reflection: pickReflection(reflection), notes };
   }
 }

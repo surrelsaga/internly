@@ -85,7 +85,7 @@ function Body() {
 export default function App() {
   const path = usePath();
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-paper bg-[radial-gradient(rgba(42,37,32,0.07)_1px,transparent_1px)] bg-[length:24px_24px] pb-[72px] font-sans text-ink">
+    <div className="relative min-h-screen overflow-x-clip bg-paper bg-[radial-gradient(rgba(42,37,32,0.07)_1px,transparent_1px)] bg-[length:24px_24px] pb-[72px] font-sans text-ink">
       <WobbleFilter />
       {path === '/login' ? (
         <Login />

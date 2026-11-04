@@ -15,7 +15,9 @@ export type Internship = {
 export type Me = { id: string; email: string; name: string };
 export type WeekTask = { id: string; title: string; done: boolean; fromWeek: number | null };
 export type ReflectionData = { learnt: string; wentWell: string; needHelp: string };
-export type WeekDetail = Week & { tasks: WeekTask[]; reflection: ReflectionData };
+export type NoteType = 'dev' | 'research';
+export type Note = { id: string; type: NoteType; title: string; content: object; position: number };
+export type WeekDetail = Week & { tasks: WeekTask[]; reflection: ReflectionData; notes: Note[] };
 
 export class ApiError extends Error {
   constructor(
@@ -35,6 +37,15 @@ export async function api<T>(path: string, body?: unknown, method = body === und
     throw new ApiError(res.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? res.statusText));
   }
   return res.status === 204 ? (undefined as T) : res.json();
+}
+
+// Uploads an image to Cloudinary through the API and returns its URL.
+export async function uploadImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/uploads/image', { method: 'POST', body: form });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return (await res.json()).url;
 }
 
 // ponytail: a hand-rolled router, because there are only two routes. Add react-router if more arrive.
