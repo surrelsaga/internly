@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api, ApiError, go, nowWeek, usePath, type Internship } from './api';
+import { api, ApiError, go, usePath, type CurrentWeek, type Internship } from './api';
 import Setup from './Setup';
 import { WobbleButton, WobbleFilter } from './ui';
 import WeekPage from './WeekPage';
@@ -50,16 +50,21 @@ function Body() {
     queryFn: () => api<Internship>('/internship').catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
   });
   const weekId = path.match(/^\/weeks\/([^/]+)\/?$/)?.[1];
-  // Anything that isn't a week page opens the current week.
+  // Under the 'internship' key so saving a reflection refetches it and the page unlocks.
+  const current = useQuery({ queryKey: ['internship', 'current'], queryFn: () => api<CurrentWeek>('/weeks/current'), enabled: !!internship.data });
+  const lock = current.data?.locked ? current.data : null;
+  const week = internship.data?.weeks.find((w) => w.id === weekId);
+  // Anything that isn't a week page opens the current week, or the locked one. While locked, weeks after it bounce back.
   useEffect(() => {
-    if (internship.data && !weekId) go(`/weeks/${nowWeek(internship.data.weeks).id}`, true);
-  }, [internship.data, weekId]);
+    if (!current.data) return;
+    if (!weekId || (lock && week && week.number > lock.number)) go(`/weeks/${current.data.id}`, true);
+  }, [current.data, lock, week, weekId]);
 
   if (internship.isPending) return <p className={note}>loading…</p>;
   if (internship.error) return <p role="alert" className={note}>Could not load: {internship.error.message}</p>;
   if (!internship.data) return <Setup />;
-  if (!weekId) return <p className={note}>loading…</p>;
-  const week = internship.data.weeks.find((w) => w.id === weekId);
+  if (current.error) return <p role="alert" className={note}>Could not load: {current.error.message}</p>;
+  if (!weekId || !current.data) return <p className={note}>loading…</p>;
   if (!week) {
     return (
       <p className={note}>
@@ -67,7 +72,8 @@ function Body() {
       </p>
     );
   }
-  return <WeekPage key={week.id} internship={internship.data} week={week} />;
+  if (lock && week.number > lock.number) return <p className={note}>loading…</p>;
+  return <WeekPage key={week.id} internship={internship.data} week={week} lock={lock} />;
 }
 
 export default function App() {

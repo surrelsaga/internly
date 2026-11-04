@@ -15,9 +15,10 @@ const tabs: { id: Tab; label: string }[] = [
 
 const dashedBtn = 'border-[1.5px] border-dashed border-ink-mute bg-transparent font-hand text-ink-soft';
 
-function WeekDropdown({ internship, week }: { internship: Internship; week: Week }) {
+function WeekDropdown({ internship, week, lock }: { internship: Internship; week: Week; lock: Week | null }) {
   const [open, setOpen] = useState(false);
   const nowId = nowWeek(internship.weeks).id;
+  const off = (w: Week) => !!lock && w.number > lock.number;
   return (
     <div className="relative">
       <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-[60px] items-center gap-2.5 border-0 bg-transparent px-2 text-ink">
@@ -37,12 +38,14 @@ function WeekDropdown({ internship, week }: { internship: Internship; week: Week
               href={`/weeks/${w.id}`}
               role="option"
               aria-selected={w.id === week.id}
+              aria-disabled={off(w)}
               onClick={(e) => {
                 e.preventDefault();
+                if (off(w)) return;
                 setOpen(false);
                 go(`/weeks/${w.id}`);
               }}
-              className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.id === nowId ? 'bg-highlighter' : ''}`}
+              className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.id === nowId ? 'bg-highlighter' : ''} ${off(w) ? 'cursor-not-allowed opacity-40' : ''}`}
             >
               <span className="flex-none basis-[76px] font-hand text-[20px]">Week {w.number}</span>
               <span className="flex-1 font-hand text-base text-ink-soft">{shortDay(w.startDate)} to {shortDay(w.endDate)}</span>
@@ -162,7 +165,7 @@ const fields: { key: keyof ReflectionData; label: string; required?: boolean; pl
 type Status = 'idle' | 'saving' | 'saved' | 'error';
 const statusText = { idle: '', saving: 'saving…', saved: 'saved', error: 'could not save, will retry' };
 
-function Reflection({ week, initial }: { week: Week; initial: ReflectionData }) {
+function Reflection({ week, initial, locked }: { week: Week; initial: ReflectionData; locked: boolean }) {
   const qc = useQueryClient();
   const [values, setValues] = useState(initial);
   const [status, setStatus] = useState<Status>('idle');
@@ -220,7 +223,7 @@ function Reflection({ week, initial }: { week: Week; initial: ReflectionData }) 
         <div key={f.key} className="mt-[30px]">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <label htmlFor={`refl-${f.key}`} className="font-hand text-[23px]">
-              {f.label}
+              {locked && f.required ? <Marker>{f.label}</Marker> : f.label}
               {f.required && <span aria-hidden="true" className="ml-1 text-[28px] text-redpen">*</span>}
             </label>
             {/* ponytail: does nothing until step 10 */}
@@ -238,10 +241,11 @@ function Reflection({ week, initial }: { week: Week; initial: ReflectionData }) 
   );
 }
 
-export default function WeekPage({ internship, week }: { internship: Internship; week: Week }) {
+export default function WeekPage({ internship, week, lock }: { internship: Internship; week: Week; lock: Week | null }) {
   const day = dayOfWeek(week);
-  // ?tab=reflection opens that tab (the Friday email links there)
-  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') === 'reflection' ? 'reflection' : 'dev'));
+  const locked = lock?.id === week.id;
+  // ?tab=reflection opens that tab (the Friday email links there); a locked week always does
+  const [tab, setTab] = useState<Tab>(() => (locked || new URLSearchParams(location.search).get('tab') === 'reflection' ? 'reflection' : 'dev'));
   const detail = useQuery({ queryKey: ['week', week.id], queryFn: () => api<WeekDetail>(`/weeks/${week.id}`) });
   const tasks = detail.data?.tasks ?? [];
   // lives here so the chosen note survives a trip to the reflection tab
@@ -249,13 +253,19 @@ export default function WeekPage({ internship, week }: { internship: Internship;
   return (
     <main className="mx-auto max-w-[1240px] px-8 pt-7">
       <section aria-label="Week" className="flex flex-wrap items-center gap-x-7 gap-y-3.5">
-        <WeekDropdown internship={internship} week={week} />
+        <WeekDropdown internship={internship} week={week} lock={lock} />
         <div className="flex flex-col gap-1">
           <span className="font-hand text-[23px]">{longRange(week)}</span>
           <span className="font-hand text-[17px] text-ink-soft">{day ? `${internship.company}, day ${day} of 5` : internship.company}</span>
         </div>
         <span className="rounded-tab bg-highlighter px-4 py-1 font-hand text-[19px]">{tasks.filter((t) => t.done).length} of {tasks.length} ticked</span>
       </section>
+
+      {locked && (
+        <p role="alert" className="mt-4 font-hand text-[23px] text-redpen">
+          Write your reflection to continue. Week {week.number} needs “What I learnt” before you move on.
+        </p>
+      )}
 
       <div role="tablist" aria-label="Sections" className="mt-[26px] mb-[22px] flex flex-wrap gap-2.5">
         {tabs.map((t) => (
@@ -278,7 +288,7 @@ export default function WeekPage({ internship, week }: { internship: Internship;
           {tab !== 'reflection' ? (
             <Notes tab={tab} active={active} setActive={setActive} />
           ) : detail.data ? (
-            <Reflection week={week} initial={detail.data.reflection} />
+            <Reflection week={week} initial={detail.data.reflection} locked={locked} />
           ) : (
             <p className="font-hand text-[23px]">loading…</p>
           )}

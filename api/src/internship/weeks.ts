@@ -31,3 +31,15 @@ export function currentWeek<T extends { startDate: string; endDate: string }>(we
   const today = singaporeDay(now);
   return weeks.find((w) => today <= w.endDate) ?? weeks[weeks.length - 1];
 }
+
+// The week that must be reflected first, or null. Only last week can lock, and only if tracking had begun by then.
+export function lockedWeek<T extends { id: string; startDate: string; endDate: string }>(
+  weeks: T[],
+  reflections: { weekId: string; learnt: string }[],
+  trackingStartDate: string,
+  now: Date,
+): T | null {
+  const last = weeks[weeks.indexOf(currentWeek(weeks, now)) - 1];
+  if (!last || last.startDate < trackingStartDate) return null;
+  return reflections.some((r) => r.weekId === last.id && r.learnt.trim()) ? null : last;
+}

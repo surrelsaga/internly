@@ -18,7 +18,7 @@ import { Reflection } from '../reflection/reflection.entity.js';
 import { ownedWeek, weekTasks } from '../tasks/queries.js';
 import { User } from '../users/user.entity.js';
 import { Internship, Week } from './internship.entity.js';
-import { currentWeek, generateWeeks } from './weeks.js';
+import { currentWeek, generateWeeks, lockedWeek } from './weeks.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const isRealDay = (s: string) => !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s;
@@ -78,8 +78,11 @@ export class InternshipController {
   // Declared before :id so ':id' doesn't swallow it.
   @Get('weeks/current')
   async current(@CurrentUser() user: User) {
-    const { weeks } = await this.get(user);
-    return currentWeek(weeks, new Date());
+    const { weeks, trackingStartDate } = await this.get(user);
+    const reflections = await this.ds.getRepository(Reflection).find({ select: { weekId: true, learnt: true }, where: { weekId: In(weeks.map((w) => w.id)) } });
+    const now = new Date();
+    const locked = lockedWeek(weeks, reflections, trackingStartDate, now);
+    return { ...(locked ?? currentWeek(weeks, now)), locked: !!locked };
   }
 
   @Get('weeks/:id')

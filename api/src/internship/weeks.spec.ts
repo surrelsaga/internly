@@ -1,4 +1,4 @@
-import { currentWeek, generateWeeks } from './weeks.js';
+import { currentWeek, generateWeeks, lockedWeek } from './weeks.js';
 
 const span = (w: { startDate: string; endDate: string }) => `${w.startDate} ${w.endDate}`;
 
@@ -53,5 +53,37 @@ describe('currentWeek', () => {
 
   it('after the end returns the last week', () => {
     expect(currentWeek(weeks, new Date('2027-01-01T00:00:00Z')).number).toBe(2);
+  });
+});
+
+describe('lockedWeek', () => {
+  // weeks w1..w4 start Mon 2026-10-05, 12, 19, 26
+  const weeks = generateWeeks('2026-10-05', '2026-11-01').map((w) => ({ ...w, id: `w${w.number}` }));
+  const inWeek3 = new Date('2026-10-21T04:00:00Z'); // last week = w2
+  const lock = (refl: { weekId: string; learnt: string }[], tracking = '2026-10-05', now = inWeek3) => lockedWeek(weeks, refl, tracking, now)?.id ?? null;
+
+  it('backfill weeks never lock', () => {
+    expect(lock([], '2026-10-19')).toBeNull();
+  });
+
+  it('the first tracked week never locks', () => {
+    expect(lock([], '2026-10-05', new Date('2026-10-07T04:00:00Z'))).toBeNull();
+  });
+
+  it('an empty last week locks', () => {
+    expect(lock([])).toBe('w2');
+    expect(lock([{ weekId: 'w2', learnt: '' }])).toBe('w2');
+  });
+
+  it('whitespace counts as empty', () => {
+    expect(lock([{ weekId: 'w2', learnt: ' \n\t ' }])).toBe('w2');
+  });
+
+  it('a written reflection unlocks', () => {
+    expect(lock([{ weekId: 'w2', learnt: 'SQL joins' }])).toBeNull();
+  });
+
+  it('only last week counts, not older ones', () => {
+    expect(lock([{ weekId: 'w2', learnt: 'x' }, { weekId: 'w1', learnt: '' }])).toBeNull();
   });
 });

@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
 export type Week = { id: string; number: number; startDate: string; endDate: string; reflected: boolean };
+// ponytail: the lock is enforced in the frontend only. One person's own journal, so no server-side check.
+export type CurrentWeek = Week & { locked: boolean };
 export type Internship = {
   id: string;
   company: string;
