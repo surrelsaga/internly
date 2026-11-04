@@ -12,6 +12,7 @@ export type Internship = {
   weeks: Week[];
 };
 
+export type Me = { id: string; email: string; name: string };
 export type WeekTask = { id: string; title: string; done: boolean; fromWeek: number | null };
 export type ReflectionData = { learnt: string; wentWell: string; needHelp: string };
 export type WeekDetail = Week & { tasks: WeekTask[]; reflection: ReflectionData };
@@ -28,6 +29,7 @@ export class ApiError extends Error {
 export async function api<T>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
   const res = await fetch(`/api${path}`, { method, ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
   if (!res.ok) {
+    if (res.status === 401 && location.pathname !== '/login') go('/login', true);
     const data = await res.json().catch(() => null);
     const msg = data?.message;
     throw new ApiError(res.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? res.statusText));

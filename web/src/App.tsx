@@ -1,11 +1,19 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api, ApiError, go, usePath, type CurrentWeek, type Internship } from './api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError, go, usePath, type CurrentWeek, type Internship, type Me } from './api';
+import Login from './Login';
 import Setup from './Setup';
 import { WobbleButton, WobbleFilter } from './ui';
 import WeekPage from './WeekPage';
 
 function Header() {
+  const qc = useQueryClient();
+  const me = useQuery({ queryKey: ['me'], queryFn: () => api<Me>('/auth/me') });
+  const signOut = async () => {
+    await api('/auth/logout', {});
+    qc.clear();
+    go('/login');
+  };
   return (
     <header className="mx-auto max-w-[1240px] px-8 pt-5">
       <div className="flex flex-wrap items-center justify-between gap-4 pt-2 pb-[18px]">
@@ -23,9 +31,8 @@ function Header() {
           </div>
         </div>
         <div className="flex items-center gap-3.5">
-          <span className="font-hand text-[19px] text-ink-soft">Daniel</span>
-          {/* ponytail: inert until step 9 (auth) */}
-          <WobbleButton>sign out</WobbleButton>
+          <span className="font-hand text-[19px] text-ink-soft">{me.data?.name}</span>
+          <WobbleButton onClick={signOut}>sign out</WobbleButton>
         </div>
       </div>
       <svg width="100%" height="14" viewBox="0 0 1200 14" preserveAspectRatio="none" fill="none" aria-hidden="true" className="block">
@@ -77,11 +84,18 @@ function Body() {
 }
 
 export default function App() {
+  const path = usePath();
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-paper bg-[radial-gradient(rgba(42,37,32,0.07)_1px,transparent_1px)] bg-[length:24px_24px] pb-[72px] font-sans text-ink">
       <WobbleFilter />
-      <Header />
-      <Body />
+      {path === '/login' ? (
+        <Login />
+      ) : (
+        <>
+          <Header />
+          <Body />
+        </>
+      )}
     </div>
   );
 }
