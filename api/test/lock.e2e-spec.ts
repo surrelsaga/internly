@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
+import { ownerAgent } from './auth.js';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { Internship } from '../src/internship/internship.entity.js';
@@ -8,7 +8,8 @@ import { mondayOf, singaporeDay } from '../src/internship/weeks.js';
 
 describe('reflection lock (e2e)', () => {
   let app: INestApplication;
-  const http = () => request(app.getHttpServer());
+  let agent: Awaited<ReturnType<typeof ownerAgent>>;
+  const http = () => agent;
   const shift = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
   beforeAll(async () => {
@@ -16,6 +17,7 @@ describe('reflection lock (e2e)', () => {
     app = mod.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
+    agent = await ownerAgent(app);
   });
 
   afterAll(() => app.close());

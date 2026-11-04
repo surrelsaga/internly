@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
+import { ownerAgent } from './auth.js';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { Internship, Week } from '../src/internship/internship.entity.js';
@@ -8,7 +8,8 @@ import { User } from '../src/users/user.entity.js';
 
 describe('internship (e2e)', () => {
   let app: INestApplication;
-  const http = () => request(app.getHttpServer());
+  let agent: Awaited<ReturnType<typeof ownerAgent>>;
+  const http = () => agent;
   const body = { company: 'Speedback', startDate: '2026-10-07', endDate: '2026-11-29' };
 
   beforeAll(async () => {
@@ -16,6 +17,7 @@ describe('internship (e2e)', () => {
     app = mod.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
+    agent = await ownerAgent(app);
   });
 
   afterAll(() => app.close());

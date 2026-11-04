@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
+import { ownerAgent } from './auth.js';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { Internship, Week } from '../src/internship/internship.entity.js';
@@ -10,7 +10,8 @@ import { User } from '../src/users/user.entity.js';
 describe('reflection (e2e)', () => {
   let app: INestApplication;
   let weeks: { id: string }[];
-  const http = () => request(app.getHttpServer());
+  let agent: Awaited<ReturnType<typeof ownerAgent>>;
+  const http = () => agent;
   const put = (n: number, body: object) => http().put(`/api/weeks/${weeks[n].id}/reflection`).send(body);
   const reflected = async () => (await http().get('/api/internship').expect(200)).body.weeks.map((w: { reflected: boolean }) => w.reflected);
 
@@ -19,6 +20,7 @@ describe('reflection (e2e)', () => {
     app = mod.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
+    agent = await ownerAgent(app);
     const { body } = await http().post('/api/internship').send({ company: 'Speedback', startDate: '2026-10-05', endDate: '2026-11-01' }).expect(201);
     weeks = body.weeks;
   });
