@@ -2,6 +2,7 @@ import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AiController, AiService } from './ai/ai.js';
 import { AppController } from './app.controller.js';
 import { AuthController, GoogleStrategy } from './auth/auth.js';
 import { JwtGuard } from './auth/current-user.js';
@@ -16,9 +17,10 @@ import { User } from './users/user.entity.js';
 
 @Module({
   imports: [TypeOrmModule.forRoot(dataSource.options), TypeOrmModule.forFeature([User]), ScheduleModule.forRoot()],
-  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController],
+  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController, AiController],
   providers: [
     GoogleStrategy,
+    AiService,
     EmailService,
     WeeklyEmail,
     { provide: APP_GUARD, useClass: JwtGuard },
