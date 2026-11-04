@@ -79,15 +79,3 @@ export const researchNotes: Note[] = [
     ],
   },
 ];
-
-export const reflectionFields = [
-  {
-    id: 'refl-learnt',
-    label: 'What I learnt',
-    required: true,
-    value: 'Before creating a new table, check whether the existing ones can be extended: indexing, future growth, and properties that fit nowhere else.',
-    placeholder: 'The one thing you now know that you did not on Monday',
-  },
-  { id: 'refl-good', label: 'What went well', required: false, value: '', placeholder: 'Something you would do the same way again' },
-  { id: 'refl-help', label: 'What I need help with', required: false, value: '', placeholder: 'What is unclear, blocked or worth asking about' },
-];

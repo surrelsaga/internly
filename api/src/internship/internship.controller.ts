@@ -11,8 +11,10 @@ import {
 } from '@nestjs/common';
 import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
+import { pickReflection } from '../reflection/reflection.controller.js';
+import { Reflection } from '../reflection/reflection.entity.js';
 import { ownedWeek, weekTasks } from '../tasks/queries.js';
 import { User } from '../users/user.entity.js';
 import { Internship, Week } from './internship.entity.js';
@@ -67,7 +69,10 @@ export class InternshipController {
     const internship = await this.ds.getRepository(Internship).findOneBy({ userId: user.id });
     if (!internship) throw new NotFoundException();
     const weeks = await this.ds.getRepository(Week).find({ where: { internshipId: internship.id }, order: { number: 'ASC' } });
-    return { ...internship, weeks };
+    // reflected = "What I learnt" is not blank
+    const reflections = await this.ds.getRepository(Reflection).find({ select: { weekId: true, learnt: true }, where: { weekId: In(weeks.map((w) => w.id)) } });
+    const reflected = new Set(reflections.filter((r) => r.learnt.trim()).map((r) => r.weekId));
+    return { ...internship, weeks: weeks.map((w) => ({ ...w, reflected: reflected.has(w.id) })) };
   }
 
   // Declared before :id so ':id' doesn't swallow it.
@@ -81,6 +86,7 @@ export class InternshipController {
   async week(@CurrentUser() user: User, @Param('id', weekId) id: string) {
     const week = await ownedWeek(this.ds, user.id, id);
     if (!week) throw new NotFoundException();
-    return { ...week, tasks: await weekTasks(this.ds, week) };
+    const reflection = await this.ds.getRepository(Reflection).findOneBy({ weekId: week.id });
+    return { ...week, tasks: await weekTasks(this.ds, week), reflection: pickReflection(reflection) };
   }
 }

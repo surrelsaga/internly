@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type Week, type WeekDetail } from './api';
-import { devNotes, reflectionFields, researchNotes, type Block } from './fake';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Week, type WeekDetail } from './api';
+import { devNotes, researchNotes, type Block } from './fake';
 import TasksRail from './TasksRail';
 import { Marker, Tape, Wobble } from './ui';
 
@@ -47,6 +47,7 @@ function WeekDropdown({ internship, week }: { internship: Internship; week: Week
               <span className="flex-none basis-[76px] font-hand text-[20px]">Week {w.number}</span>
               <span className="flex-1 font-hand text-base text-ink-soft">{shortDay(w.startDate)} to {shortDay(w.endDate)}</span>
               {w.endDate < internship.trackingStartDate && <span className="font-hand text-sm text-ink-mute">backfill</span>}
+              {w.reflected && <span aria-label="reflected" className="font-hand text-[20px]">✓</span>}
             </a>
           ))}
         </div>
@@ -152,7 +153,52 @@ function Notes({ tab, active, setActive }: { tab: 'dev' | 'research'; active: Ac
   );
 }
 
-function Reflection() {
+const fields: { key: keyof ReflectionData; label: string; required?: boolean; placeholder: string }[] = [
+  { key: 'learnt', label: 'What I learnt', required: true, placeholder: 'The one thing you now know that you did not on Monday' },
+  { key: 'wentWell', label: 'What went well', placeholder: 'Something you would do the same way again' },
+  { key: 'needHelp', label: 'What I need help with', placeholder: 'What is unclear, blocked or worth asking about' },
+];
+
+type Status = 'idle' | 'saving' | 'saved' | 'error';
+const statusText = { idle: '', saving: 'saving…', saved: 'saved', error: 'could not save, will retry' };
+
+function Reflection({ week, initial }: { week: Week; initial: ReflectionData }) {
+  const qc = useQueryClient();
+  const [values, setValues] = useState(initial);
+  const [status, setStatus] = useState<Status>('idle');
+  // Fields typed since the last save, and the pending debounce timer.
+  const pending = useRef<Partial<ReflectionData>>({});
+  const timer = useRef<number | undefined>(undefined);
+
+  const flush = async () => {
+    window.clearTimeout(timer.current);
+    const body = pending.current;
+    if (!Object.keys(body).length) return;
+    pending.current = {};
+    setStatus('saving');
+    try {
+      await api(`/weeks/${week.id}/reflection`, body, 'PUT');
+      if ('learnt' in body) qc.invalidateQueries({ queryKey: ['internship'] });
+      setStatus(Object.keys(pending.current).length ? 'saving' : 'saved');
+    } catch {
+      pending.current = { ...body, ...pending.current };
+      setStatus('error');
+    }
+  };
+  // Leaving the tab or week saves what's still waiting.
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  useEffect(() => () => void flushRef.current(), []);
+
+  const change = (key: keyof ReflectionData, value: string) => {
+    setValues((v) => ({ ...v, [key]: value }));
+    pending.current[key] = value;
+    // keep the cached week current, so leaving and coming back to this tab shows what was typed
+    qc.setQueryData<WeekDetail>(['week', week.id], (d) => d && { ...d, reflection: { ...d.reflection, [key]: value } });
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, 800);
+  };
+
   return (
     <section aria-labelledby="refl-title" className="relative px-9 pt-9 pb-[34px]">
       <Wobble />
@@ -161,17 +207,19 @@ function Reflection() {
           <h2 id="refl-title" className="font-caveat text-[46px] leading-none font-bold">
             <Marker>reflection</Marker>
           </h2>
-          <p className="mt-2.5 font-hand text-[18px] text-ink-soft">Saves as you type.</p>
+          <p className="mt-2.5 font-hand text-[18px] text-ink-soft">
+            Saves as you type. <span role="status" aria-live="polite">{statusText[status]}</span>
+          </p>
         </div>
         <div className="relative w-[260px] max-w-full rotate-2 rounded-[3px_3px_14px_3px] bg-highlighter px-[18px] pt-5 pb-4 font-hand text-[18px] leading-[1.35]">
           <Tape className="-top-2.5 left-1/2 -ml-[30px] h-5 w-[60px] -rotate-4 bg-[rgba(196,169,125,0.5)]" />
-          Friday 6pm: reminder email. Week 6 stays locked until <span className="text-[#b83a2c]">What I learnt</span> is written.
+          Friday 6pm: reminder email. Week {week.number} stays locked until <span className="text-[#b83a2c]">What I learnt</span> is written.
         </div>
       </div>
-      {reflectionFields.map((f) => (
-        <div key={f.id} className="mt-[30px]">
+      {fields.map((f) => (
+        <div key={f.key} className="mt-[30px]">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            <label htmlFor={f.id} className="font-hand text-[23px]">
+            <label htmlFor={`refl-${f.key}`} className="font-hand text-[23px]">
               {f.label}
               {f.required && <span aria-hidden="true" className="ml-1 text-[28px] text-redpen">*</span>}
             </label>
@@ -183,7 +231,7 @@ function Reflection() {
               refine
             </button>
           </div>
-          <textarea id={f.id} rows={3} placeholder={f.placeholder} defaultValue={f.value} className="lined mt-1.5 block min-h-24 w-full resize-y rounded-none border-0 px-1.5 font-sans text-base text-ink" />
+          <textarea id={`refl-${f.key}`} rows={3} placeholder={f.placeholder} value={values[f.key]} onChange={(e) => change(f.key, e.target.value)} className="lined mt-1.5 block min-h-24 w-full resize-y rounded-none border-0 px-1.5 font-sans text-base text-ink" />
         </div>
       ))}
     </section>
@@ -192,7 +240,8 @@ function Reflection() {
 
 export default function WeekPage({ internship, week }: { internship: Internship; week: Week }) {
   const day = dayOfWeek(week);
-  const [tab, setTab] = useState<Tab>('dev');
+  // ?tab=reflection opens that tab (the Friday email links there)
+  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(location.search).get('tab') === 'reflection' ? 'reflection' : 'dev'));
   const detail = useQuery({ queryKey: ['week', week.id], queryFn: () => api<WeekDetail>(`/weeks/${week.id}`) });
   const tasks = detail.data?.tasks ?? [];
   // lives here so the chosen note survives a trip to the reflection tab
@@ -225,7 +274,15 @@ export default function WeekPage({ internship, week }: { internship: Internship;
       </div>
 
       <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
-        <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">{tab === 'reflection' ? <Reflection /> : <Notes tab={tab} active={active} setActive={setActive} />}</div>
+        <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">
+          {tab !== 'reflection' ? (
+            <Notes tab={tab} active={active} setActive={setActive} />
+          ) : detail.data ? (
+            <Reflection week={week} initial={detail.data.reflection} />
+          ) : (
+            <p className="font-hand text-[23px]">loading…</p>
+          )}
+        </div>
         <TasksRail week={week} tasks={tasks} />
       </div>
     </main>

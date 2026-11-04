@@ -5,12 +5,13 @@ import { AppController } from './app.controller.js';
 import { StubUserGuard } from './auth/current-user.js';
 import { dataSource } from './data-source.js';
 import { InternshipController } from './internship/internship.controller.js';
+import { ReflectionController } from './reflection/reflection.controller.js';
 import { TasksController } from './tasks/tasks.controller.js';
 import { User } from './users/user.entity.js';
 
 @Module({
   imports: [TypeOrmModule.forRoot(dataSource.options), TypeOrmModule.forFeature([User])],
-  controllers: [AppController, InternshipController, TasksController],
+  controllers: [AppController, InternshipController, TasksController, ReflectionController],
   providers: [
     { provide: APP_GUARD, useClass: StubUserGuard },
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true }) },

@@ -1,10 +1,12 @@
 import { DataSource } from 'typeorm';
 import { User } from './users/user.entity.js';
 import { Internship, Week } from './internship/internship.entity.js';
+import { Reflection } from './reflection/reflection.entity.js';
 import { Task } from './tasks/task.entity.js';
 import { Init1700000000000 } from './migrations/1700000000000-Init.js';
 import { Internship1700000001000 } from './migrations/1700000001000-Internship.js';
 import { Tasks1700000002000 } from './migrations/1700000002000-Tasks.js';
+import { Reflections1700000003000 } from './migrations/1700000003000-Reflections.js';
 
 // One .env at the repo root (absent on Render, where real env vars are set).
 // Real env vars win over the file.
@@ -22,6 +24,6 @@ export const dataSource = new DataSource({
   url: process.env.DATABASE_URL,
   ssl: true,
   synchronize: false,
-  entities: [User, Internship, Week, Task],
-  migrations: [Init1700000000000, Internship1700000001000, Tasks1700000002000],
+  entities: [User, Internship, Week, Task, Reflection],
+  migrations: [Init1700000000000, Internship1700000001000, Tasks1700000002000, Reflections1700000003000],
 });
