@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
 import { api, uploadImage, type Note, type NoteType, type WeekDetail } from './api';
+import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import { dashedBtn, Wobble } from './ui';
 
 const toolBtn = 'flex size-11 items-center justify-center rounded-[9px] border-[1.5px] border-ink/55 bg-transparent p-0 text-ink';
@@ -22,7 +23,7 @@ const statusText: Record<Status, string> = {
 
 const imageFile = (files?: FileList | null) => Array.from(files ?? []).find((f) => f.type.startsWith('image/'));
 
-function Toolbar({ editor, status, onImage }: { editor: Editor; status: Status; onImage: (f: File) => void }) {
+function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: Status; onImage: (f: File) => void; refine: ReactNode }) {
   // The editor doesn't re-render React on every transaction, so read the active marks explicitly.
   const s = useEditorState({
     editor,
@@ -73,6 +74,7 @@ function Toolbar({ editor, status, onImage }: { editor: Editor; status: Status; 
             <path d="M10 7 H20 M10 12 H20 M10 17 H20" stroke="#2A2520" strokeWidth="1.9" strokeLinecap="round" />
           </svg>
         </button>
+        {refine}
       </div>
       <span role="status" aria-live="polite" className="font-hand text-[17px] text-ink-soft">{statusText[status]}</span>
     </div>
@@ -161,11 +163,38 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
     onDeleted();
   };
 
+  const refine = useRefine();
+  // The selected range and its text, when the refine was asked for.
+  const asked = useRef<{ from: number; to: number; text: string } | null>(null);
+  const selected = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.textBetween(e.state.selection.from, e.state.selection.to, '\n') : '') }) ?? '';
+
   if (!editor) return null;
+  const ask = () => {
+    const { from, to } = editor.state.selection;
+    asked.current = { from, to, text: selected };
+    void refine.run(selected);
+  };
+  const accept = () => {
+    const a = asked.current;
+    if (!a || refine.suggestion === null) return;
+    if (editor.state.doc.textBetween(a.from, a.to, '\n') !== a.text) return refine.fail('The note changed while the AI was working. Select the text and refine again.');
+    // ponytail: replaces the range with plain text, so bold/links inside it are lost.
+    editor.chain().focus().insertContentAt({ from: a.from, to: a.to }, { type: 'text', text: refine.suggestion }).run();
+    refine.clear();
+  };
   return (
     <article className="relative pb-14">
       <Wobble />
-      <Toolbar editor={editor} status={status} onImage={(f) => void upload(f, (src) => editor.chain().focus().setImage({ src }).run())} />
+      <Toolbar
+        editor={editor}
+        status={status}
+        onImage={(f) => void upload(f, (src) => editor.chain().focus().setImage({ src }).run())}
+        refine={<RefineButton label="Refine selected text" busy={refine.busy} disabled={!selected.trim()} onClick={ask} className="!min-h-11" />}
+      />
+      <div className="px-11 pt-3 font-hand text-base text-ink-mute">
+        {REFINE_HINT} Select some text first.
+        <RefinePanel suggestion={refine.suggestion} error={refine.error} onAccept={accept} onDiscard={refine.clear} />
+      </div>
       <div className="px-11 pt-[30px] font-sans [overflow-wrap:anywhere] text-base leading-[1.75]">
         <div className="mb-[18px] flex flex-wrap items-start justify-between gap-3">
           <input
