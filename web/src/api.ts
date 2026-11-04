@@ -10,6 +10,9 @@ export type Internship = {
   weeks: Week[];
 };
 
+export type WeekTask = { id: string; title: string; done: boolean; fromWeek: number | null };
+export type WeekDetail = Week & { tasks: WeekTask[] };
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -19,14 +22,14 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api${path}`, body === undefined ? undefined : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+export async function api<T>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
+  const res = await fetch(`/api${path}`, { method, ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     const msg = data?.message;
     throw new ApiError(res.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? res.statusText));
   }
-  return res.json();
+  return res.status === 204 ? (undefined as T) : res.json();
 }
 
 // ponytail: a hand-rolled router, because there are only two routes. Add react-router if more arrive.

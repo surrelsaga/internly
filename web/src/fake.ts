@@ -80,16 +80,6 @@ export const researchNotes: Note[] = [
   },
 ];
 
-export type Task = { id: number; title: string; from: number; done: boolean };
-
-export const tasks: Task[] = [
-  { id: 1, title: 'Finish the Yes branch of NHCS rehab', from: 0, done: false },
-  { id: 2, title: 'Research continuous glucose monitors: API access, available in Hong Kong', from: 2, done: false },
-  { id: 3, title: 'Clean up the voice-to-text workflow in Mastra', from: 1, done: false },
-  { id: 4, title: 'Redesign how AAC responses are stored', from: 0, done: true },
-  { id: 5, title: 'Test the onboarding flow with a fake webhook payload', from: 0, done: true },
-];
-
 export const reflectionFields = [
   {
     id: 'refl-learnt',

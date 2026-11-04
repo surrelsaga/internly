@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from 'react';
-import { dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type Week } from './api';
-import { devNotes, reflectionFields, researchNotes, tasks as fakeTasks, type Block, type Task } from './fake';
-import { Checkbox, Marker, Tape, Wobble } from './ui';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type Week, type WeekDetail } from './api';
+import { devNotes, reflectionFields, researchNotes, type Block } from './fake';
+import TasksRail from './TasksRail';
+import { Marker, Tape, Wobble } from './ui';
 
 type Tab = 'dev' | 'research' | 'reflection';
 
@@ -188,55 +190,11 @@ function Reflection() {
   );
 }
 
-function TasksRail({ tasks, setTasks }: { tasks: Task[]; setTasks: (t: Task[]) => void }) {
-  const [title, setTitle] = useState('');
-  const toggle = (id: number) => setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  const add = (e: FormEvent) => {
-    e.preventDefault();
-    const t = title.trim();
-    if (!t) return;
-    setTasks([...tasks, { id: Date.now(), title: t, from: 0, done: false }]);
-    setTitle('');
-  };
-  return (
-    <aside aria-labelledby="tasks-title" className="order-first max-w-[340px] min-[901px]:sticky min-[901px]:top-4 min-[901px]:order-none min-[901px]:flex-[1_1_280px] min-[901px]:self-start">
-      <div className="relative -rotate-[0.4deg] px-[22px] pt-[34px] pb-[22px]">
-        <Wobble />
-        <Tape className="-top-[13px] left-1/2 -ml-11 h-[26px] w-[88px] -rotate-[2.5deg] bg-[rgba(196,169,125,0.45)]" />
-        <h2 id="tasks-title" className="mb-1 font-caveat text-[42px] leading-none font-bold">
-          <Marker>tasks</Marker>
-        </h2>
-        <p className="mt-1.5 mb-3 font-hand text-base text-ink-soft">Unticked ones move to next week.</p>
-        {tasks.map((t) => (
-          <div key={t.id} className="flex items-start gap-1 border-b-[1.5px] border-dashed border-ink/20">
-            <Checkbox checked={t.done} label={t.title} onToggle={() => toggle(t.id)} />
-            <div className="min-w-0 flex-auto py-2.5">
-              <span className={`block font-hand text-[19px] leading-tight ${t.done ? 'text-ink-mute line-through decoration-ink decoration-2' : 'text-ink'}`}>{t.title}</span>
-              {t.from > 0 && <span className="mt-1 inline-block rounded-full border-[1.5px] border-dashed border-ink-mute px-[9px] font-hand text-sm text-ink-mute">from week {t.from}</span>}
-            </div>
-          </div>
-        ))}
-        <form onSubmit={add} className="mt-4 flex flex-wrap items-center gap-2.5">
-          <label htmlFor="new-task" className="sr-only">New task</label>
-          <input
-            id="new-task"
-            type="text"
-            placeholder="add a task"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="min-h-11 min-w-0 flex-[1_1_120px] rounded-none border-0 border-b-2 border-ink bg-transparent px-1 py-1.5 font-hand text-[19px] text-ink"
-          />
-          <button type="submit" className="min-h-11 rounded-btn border-0 bg-ink px-5 font-hand text-[19px] text-paper">add</button>
-        </form>
-      </div>
-    </aside>
-  );
-}
-
 export default function WeekPage({ internship, week }: { internship: Internship; week: Week }) {
   const day = dayOfWeek(week);
   const [tab, setTab] = useState<Tab>('dev');
-  const [tasks, setTasks] = useState<Task[]>(fakeTasks);
+  const detail = useQuery({ queryKey: ['week', week.id], queryFn: () => api<WeekDetail>(`/weeks/${week.id}`) });
+  const tasks = detail.data?.tasks ?? [];
   // lives here so the chosen note survives a trip to the reflection tab
   const [active, setActive] = useState<Active>({ dev: 0, research: 0 });
   return (
@@ -268,7 +226,7 @@ export default function WeekPage({ internship, week }: { internship: Internship;
 
       <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
         <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">{tab === 'reflection' ? <Reflection /> : <Notes tab={tab} active={active} setActive={setActive} />}</div>
-        <TasksRail tasks={tasks} setTasks={setTasks} />
+        <TasksRail week={week} tasks={tasks} />
       </div>
     </main>
   );

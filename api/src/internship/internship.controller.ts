@@ -13,6 +13,7 @@ import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { DataSource } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
+import { ownedWeek, weekTasks } from '../tasks/queries.js';
 import { User } from '../users/user.entity.js';
 import { Internship, Week } from './internship.entity.js';
 import { currentWeek, generateWeeks } from './weeks.js';
@@ -78,13 +79,8 @@ export class InternshipController {
 
   @Get('weeks/:id')
   async week(@CurrentUser() user: User, @Param('id', weekId) id: string) {
-    const week = await this.ds
-      .getRepository(Week)
-      .createQueryBuilder('w')
-      .innerJoin(Internship, 'i', 'i.id = w.internshipId')
-      .where('w.id = :id AND i.userId = :userId', { id, userId: user.id })
-      .getOne();
+    const week = await ownedWeek(this.ds, user.id, id);
     if (!week) throw new NotFoundException();
-    return week;
+    return { ...week, tasks: await weekTasks(this.ds, week) };
   }
 }
