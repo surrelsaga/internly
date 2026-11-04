@@ -40,6 +40,8 @@ describe('notes (e2e)', () => {
 
     await agent.patch(`/api/notes/${note.id}`).send({ title: 5 }).expect(400);
     await agent.patch(`/api/notes/${note.id}`).send({ content: 'nope' }).expect(400);
+    await agent.patch(`/api/notes/${note.id}`).send({ content: null }).expect(400);
+    await agent.patch(`/api/notes/${note.id}`).send({ title: null }).expect(400);
     await create(0, 'other', 'x').expect(400);
 
     await agent.delete(`/api/notes/${note.id}`).expect(204);

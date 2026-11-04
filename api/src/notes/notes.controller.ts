@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, HttpCode, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsObject, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsObject, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
 import { Internship, Week } from '../internship/internship.entity.js';
@@ -20,18 +20,21 @@ class CreateNoteDto {
   title: string;
 }
 
+// ValidateIf (not IsOptional) so an explicit null fails too: the columns are NOT NULL.
+const given = (_: unknown, v: unknown) => v !== undefined;
+
 class UpdateNoteDto {
-  @IsOptional()
+  @ValidateIf(given)
   @Transform(trim)
   @IsString()
   @MaxLength(200)
   title?: string;
 
-  @IsOptional()
+  @ValidateIf(given)
   @IsObject()
   content?: object;
 
-  @IsOptional()
+  @ValidateIf(given)
   @IsInt()
   @Min(0)
   position?: number;
