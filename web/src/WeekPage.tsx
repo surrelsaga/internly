@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Week, type WeekDetail } from './api';
 import NotesPanel from './NotesPanel';
+import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import TasksRail from './TasksRail';
-import { dashedBtn, Marker, Tape, Wobble } from './ui';
+import { Marker, Tape, Wobble } from './ui';
 
 type Tab = 'dev' | 'research' | 'reflection';
 
@@ -66,6 +67,31 @@ const fields: { key: keyof ReflectionData; label: string; required?: boolean; pl
 type Status = 'idle' | 'saving' | 'saved' | 'error';
 const statusText = { idle: '', saving: 'saving…', saved: 'saved', error: 'could not save, will retry' };
 
+function ReflectionField({ f, value, locked, onChange }: { f: (typeof fields)[number]; value: string; locked: boolean; onChange: (v: string) => void }) {
+  const r = useRefine();
+  return (
+    <div className="mt-[30px]">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <label htmlFor={`refl-${f.key}`} className="font-hand text-[23px]">
+          {locked && f.required ? <Marker>{f.label}</Marker> : f.label}
+          {f.required && <span aria-hidden="true" className="ml-1 text-[28px] text-redpen">*</span>}
+        </label>
+        <RefineButton label={`Refine ${f.label}`} busy={r.busy} disabled={!value.trim()} onClick={() => void r.run(value)} />
+      </div>
+      <textarea id={`refl-${f.key}`} rows={3} placeholder={f.placeholder} value={value} onChange={(e) => onChange(e.target.value)} className="lined mt-1.5 block min-h-24 w-full resize-y rounded-none border-0 px-1.5 font-sans text-base text-ink" />
+      <RefinePanel
+        suggestion={r.suggestion}
+        error={r.error}
+        onAccept={() => {
+          onChange(r.suggestion ?? value);
+          r.clear();
+        }}
+        onDiscard={r.clear}
+      />
+    </div>
+  );
+}
+
 function Reflection({ week, initial, locked }: { week: Week; initial: ReflectionData; locked: boolean }) {
   const qc = useQueryClient();
   const [values, setValues] = useState(initial);
@@ -114,6 +140,7 @@ function Reflection({ week, initial, locked }: { week: Week; initial: Reflection
           <p className="mt-2.5 font-hand text-[18px] text-ink-soft">
             Saves as you type. <span role="status" aria-live="polite">{statusText[status]}</span>
           </p>
+          <p className="mt-1 font-hand text-base text-ink-mute">{REFINE_HINT}</p>
         </div>
         <div className="relative w-[260px] max-w-full rotate-2 rounded-[3px_3px_14px_3px] bg-highlighter px-[18px] pt-5 pb-4 font-hand text-[18px] leading-[1.35]">
           <Tape className="-top-2.5 left-1/2 -ml-[30px] h-5 w-[60px] -rotate-4 bg-[rgba(196,169,125,0.5)]" />
@@ -121,22 +148,7 @@ function Reflection({ week, initial, locked }: { week: Week; initial: Reflection
         </div>
       </div>
       {fields.map((f) => (
-        <div key={f.key} className="mt-[30px]">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            <label htmlFor={`refl-${f.key}`} className="font-hand text-[23px]">
-              {locked && f.required ? <Marker>{f.label}</Marker> : f.label}
-              {f.required && <span aria-hidden="true" className="ml-1 text-[28px] text-redpen">*</span>}
-            </label>
-            {/* ponytail: does nothing until step 10 */}
-            <button type="button" aria-label="Refine the wording of this field" className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-[17px] ${dashedBtn}`}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 20 L5 15 L16.5 3.5 a2.1 2.1 0 0 1 3 3 L8 18 Z M14.5 5.5 L18.5 9.5" stroke="#4A4540" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              refine
-            </button>
-          </div>
-          <textarea id={`refl-${f.key}`} rows={3} placeholder={f.placeholder} value={values[f.key]} onChange={(e) => change(f.key, e.target.value)} className="lined mt-1.5 block min-h-24 w-full resize-y rounded-none border-0 px-1.5 font-sans text-base text-ink" />
-        </div>
+        <ReflectionField key={f.key} f={f} locked={locked} value={values[f.key]} onChange={(v) => change(f.key, v)} />
       ))}
     </section>
   );
