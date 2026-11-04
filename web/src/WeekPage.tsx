@@ -135,7 +135,7 @@ function Notes({ tab }: { tab: 'dev' | 'research' }) {
       <article className="relative pb-14">
         <Wobble />
         <Toolbar />
-        <div className="px-11 pt-[30px] font-sans text-base leading-[1.75]">
+        <div className="px-11 pt-[30px] font-sans [overflow-wrap:anywhere] text-base leading-[1.75]">
           <h2 className="mb-[18px] font-caveat text-[48px] leading-[1.05] font-bold">{note.title}</h2>
           {note.blocks.map((b, i) => (
             <BlockView key={i} b={b} />
