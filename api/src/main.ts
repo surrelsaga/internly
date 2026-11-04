@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
+import { WeeklyEmail } from './email/email.js';
 
 const app = await NestFactory.create<NestExpressApplication>(AppModule);
 app.setGlobalPrefix('api');
@@ -17,3 +18,5 @@ app.use((req: { method: string; path: string }, res: { sendFile(p: string): void
 });
 
 await app.listen(process.env.PORT ?? 3000);
+// A Friday email missed while the server was down goes out now. Not in AppModule, so tests never trigger it.
+await app.get(WeeklyEmail).sendDue();
