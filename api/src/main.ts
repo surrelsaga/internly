@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
@@ -8,10 +9,10 @@ app.setGlobalPrefix('api');
 app.set('trust proxy', 1);
 
 // ponytail: plain express static + SPA fallback instead of @nestjs/serve-static (one less dependency).
-const web = new URL('../../web/dist/', import.meta.url).pathname;
+const web = fileURLToPath(new URL('../../web/dist/', import.meta.url));
 app.useStaticAssets(web);
 app.use((req: { method: string; path: string }, res: { sendFile(p: string): void }, next: () => void) => {
-  if (req.method === 'GET' && !req.path.startsWith('/api')) res.sendFile(`${web}index.html`);
+  if (req.method === 'GET' && req.path !== '/api' && !req.path.startsWith('/api/')) res.sendFile(`${web}index.html`);
   else next();
 });
 
