@@ -113,3 +113,87 @@
 .note-body img.ProseMirror-selectednode {
   outline: 3px solid var(--color-blue);
 }
+
+/* Hover play. Small, plays once per hover, never loops. Not used on the editor toolbar or inputs. */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2deg); }
+  75% { transform: rotate(-1deg); }
+}
+@keyframes nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+/* outlined button: shake, then a hand-drawn underline scribbles in (<Scribble/> inside) */
+.wiggle:hover {
+  animation: wiggle 0.35s ease-in-out;
+}
+.scribble path,
+.tick path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.scribble path {
+  transition: stroke-dashoffset 0.35s ease-out 0.1s;
+}
+.wiggle:hover .scribble path,
+.wiggle:focus-visible .scribble path {
+  stroke-dashoffset: 0;
+}
+
+/* dark filled button: tilts and lifts, presses in on click */
+.tilt {
+  transition: transform 0.15s ease-out;
+}
+.tilt:not(:disabled):hover {
+  transform: translateY(-1px) rotate(-1.5deg);
+}
+.tilt:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* inactive tab or chip: a hand-drawn highlighter stroke sweeps in behind the label.
+   The stroke is an uneven SVG shape (slightly slanted, ragged edges), stretched to the label. */
+.swipe {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cpath d='M1 9 C 14 3, 34 8, 55 4 S 90 5, 99 2 L98 17 C 99 24, 97 31, 99 38 C 76 33, 52 39, 30 35 S 8 38, 2 34 C 4 26, 0 17, 1 9 Z' fill='rgb(255,224,102)' fill-opacity='0.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 50%;
+  background-size: 0% 92%;
+  transition: background-size 0.25s ease-out;
+}
+.swipe:hover,
+.swipe:focus-visible {
+  background-size: 100% 92%;
+}
+
+/* week chevron nudges down once */
+.nudge:hover svg {
+  animation: nudge 0.45s ease-in-out;
+}
+
+/* checkbox tick draws itself when ticked (the transition doesn't run on first render) */
+.tick path {
+  transition: stroke-dashoffset 0.25s ease-out;
+}
+[aria-checked='true'] .tick path {
+  stroke-dashoffset: 0;
+}
+
+/* reduce motion: no movement. The underline, highlighter and tick still appear, just without easing. */
+@media (prefers-reduced-motion: reduce) {
+  .wiggle:hover,
+  .nudge:hover svg {
+    animation: none;
+  }
+  .tilt:not(:disabled):hover,
+  .tilt:not(:disabled):active {
+    transform: none;
+  }
+  .scribble path,
+  .swipe,
+  .tick path {
+    transition: none;
+  }
+}

@@ -14,7 +14,7 @@ export default function Login() {
           </p>
         )}
         {/* A full navigation, not a fetch: Google's consent screen needs the browser. */}
-        <a href="/api/auth/google" className="mt-[30px] inline-flex min-h-11 items-center rounded-btn bg-ink px-6 font-hand text-[21px] text-paper no-underline">
+        <a href="/api/auth/google" className="tilt mt-[30px] inline-flex min-h-11 items-center rounded-btn bg-ink px-6 font-hand text-[21px] text-paper no-underline">
           Sign in with Google
         </a>
       </section>

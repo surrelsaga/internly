@@ -247,7 +247,7 @@ export default function NotesPanel({ weekId, type, notes, activeId, setActiveId 
               type="button"
               aria-pressed={sel}
               onClick={() => setActiveId(n.id)}
-              className={`min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${sel ? 'bg-highlighter' : 'bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`}
+              className={`min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${sel ? 'bg-highlighter' : 'swipe bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`}
             >
               {n.title || 'untitled'}
             </button>

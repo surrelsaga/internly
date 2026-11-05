@@ -41,7 +41,7 @@ export default function Setup() {
             {save.error.message}
           </p>
         )}
-        <button type="submit" disabled={save.isPending} className="mt-[30px] min-h-11 rounded-btn border-0 bg-ink px-6 font-hand text-[21px] text-paper disabled:opacity-60">
+        <button type="submit" disabled={save.isPending} className="tilt mt-[30px] min-h-11 rounded-btn border-0 bg-ink px-6 font-hand text-[21px] text-paper disabled:opacity-60">
           {save.isPending ? 'saving…' : 'start my log'}
         </button>
       </form>
