@@ -15,8 +15,8 @@ export function WobbleFilter() {
 }
 
 // The border layer behind a card/button/checkbox. The only place the filter is applied.
-export function Wobble({ radius = 'rounded-card' }: { radius?: string }) {
-  return <span aria-hidden="true" className={`pointer-events-none absolute inset-0 block border-2 border-ink ${radius} [filter:url(#jp-wobble)]`} />;
+export function Wobble({ radius = 'rounded-card', className = '' }: { radius?: string; className?: string }) {
+  return <span aria-hidden="true" className={`pointer-events-none absolute inset-0 block border-2 border-ink ${radius} [filter:url(#jp-wobble)] ${className}`} />;
 }
 
 export function WobbleButton({ className = '', children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {

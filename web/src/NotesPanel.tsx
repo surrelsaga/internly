@@ -186,7 +186,8 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
   };
   return (
     <article className="relative pb-14">
-      <Wobble />
+      {/* z-10: above the sticky toolbar (z-5), so the wobbly top edge isn't cut by it. It ignores clicks. */}
+      <Wobble className="z-10" />
       <Toolbar
         editor={editor}
         status={status}
