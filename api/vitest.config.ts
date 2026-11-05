@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
-const shared = { resolve: { tsconfigPaths: true } };
+// extends: projects inherit the root test options (the 30s timeout), otherwise they fall back to 5s.
+const shared = { extends: true, resolve: { tsconfigPaths: true } };
 
 export default defineConfig({
   test: {
