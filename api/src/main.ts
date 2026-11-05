@@ -6,6 +6,8 @@ import { WeeklyEmail } from './email/email.js';
 
 const app = await NestFactory.create<NestExpressApplication>(AppModule);
 app.setGlobalPrefix('api');
+// The default 100kb would reject autosave of a long note (TipTap JSON is verbose).
+app.useBodyParser('json', { limit: '5mb' });
 // Render terminates TLS in front of us; trust it so secure cookies and req.protocol work.
 app.set('trust proxy', 1);
 

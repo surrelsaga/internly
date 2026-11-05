@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Week, type WeekDetail } from './api';
+import { api, ApiError, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Week, type WeekDetail } from './api';
 import NotesPanel from './NotesPanel';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import TasksRail from './TasksRail';
@@ -110,15 +110,24 @@ function Reflection({ week, initial, locked }: { week: Week; initial: Reflection
       await api(`/weeks/${week.id}/reflection`, body, 'PUT');
       if ('learnt' in body) qc.invalidateQueries({ queryKey: ['internship'] });
       setStatus(Object.keys(pending.current).length ? 'saving' : 'saved');
-    } catch {
+    } catch (e) {
       pending.current = { ...body, ...pending.current };
       setStatus('error');
+      // Network errors and 5xx (e.g. a dropped database connection) retry on their own.
+      if (!(e instanceof ApiError) || e.status >= 500) timer.current = window.setTimeout(flush, 3000);
     }
   };
-  // Leaving the tab or week saves what's still waiting.
+  // Leaving the tab or week, or closing/reloading the page, saves what's still waiting.
   const flushRef = useRef(flush);
   flushRef.current = flush;
-  useEffect(() => () => void flushRef.current(), []);
+  useEffect(() => {
+    const onHide = () => void flushRef.current();
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      void flushRef.current();
+    };
+  }, []);
 
   const change = (key: keyof ReflectionData, value: string) => {
     setValues((v) => ({ ...v, [key]: value }));

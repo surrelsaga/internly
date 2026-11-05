@@ -4,7 +4,7 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
-import { api, uploadImage, type Note, type NoteType, type WeekDetail } from './api';
+import { api, ApiError, uploadImage, type Note, type NoteType, type WeekDetail } from './api';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import { dashedBtn, Wobble } from './ui';
 
@@ -103,9 +103,11 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
     try {
       await api(`/notes/${note.id}`, body, 'PATCH');
       setStatus(Object.keys(pending.current).length ? 'saving' : 'saved');
-    } catch {
+    } catch (e) {
       pending.current = { ...body, ...pending.current };
       setStatus('error');
+      // Network errors and 5xx (e.g. a dropped database connection) retry on their own.
+      if (!(e instanceof ApiError) || e.status >= 500) timer.current = window.setTimeout(flush, 3000);
     }
   };
   // Leaving the note, tab or week saves what's still waiting.
