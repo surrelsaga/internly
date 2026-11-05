@@ -20,7 +20,7 @@ function WeekDropdown({ internship, week, lock }: { internship: Internship; week
   const off = (w: Week) => !!lock && w.number > lock.number;
   return (
     <div className="relative">
-      <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-[60px] items-center gap-2.5 border-0 bg-transparent px-2 text-ink">
+      <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} className="nudge flex min-h-[60px] items-center gap-2.5 border-0 bg-transparent px-2 text-ink">
         <span className="font-caveat text-[64px] leading-none font-bold">Week {week.number}</span>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-3.5">
           <path d="M5 9 L12 16 L19 9" stroke="#2A2520" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -197,7 +197,7 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${tab === t.id ? 'bg-highlighter' : 'bg-transparent'}`}
+            className={`min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${tab === t.id ? 'bg-highlighter' : 'swipe bg-transparent'}`}
           >
             {t.label}
             {t.id === 'reflection' && <span aria-hidden="true" className="text-redpen"> *</span>}

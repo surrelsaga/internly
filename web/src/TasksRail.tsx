@@ -115,7 +115,7 @@ export default function TasksRail({ week, tasks }: { week: Week; tasks: WeekTask
             onChange={(e) => setTitle(e.target.value)}
             className="min-h-11 min-w-0 flex-[1_1_120px] rounded-none border-0 border-b-2 border-ink bg-transparent px-1 py-1.5 font-hand text-[19px] text-ink"
           />
-          <button type="submit" disabled={add.isPending} className="min-h-11 rounded-btn border-0 bg-ink px-5 font-hand text-[19px] text-paper">add</button>
+          <button type="submit" disabled={add.isPending} className="tilt min-h-11 rounded-btn border-0 bg-ink px-5 font-hand text-[19px] text-paper">add</button>
         </form>
         {error && <p role="alert" className="mt-3 font-hand text-base text-redpen">Could not save: {error.message}</p>}
       </div>
