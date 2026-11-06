@@ -62,6 +62,9 @@
 }
 
 /* TipTap note body: the mock's block styles on what the editor renders. No max height, the page grows. */
+.note-body {
+  tab-size: 4; /* a Tab press inserts a tab character; the default 8 is too wide */
+}
 .note-body p {
   margin-bottom: 14px;
 }

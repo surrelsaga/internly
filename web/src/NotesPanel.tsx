@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import { EditorContent, Extension, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style';
@@ -181,6 +181,45 @@ function FontSizeControl({ editor, size }: { editor: Editor; size: number }) {
   );
 }
 
+// Tab indents instead of jumping to the next field. In a bullet list it nests the item; elsewhere it inserts a tab at
+// the caret, or at the start of every selected line (so a selection is never replaced). Shift+Tab undoes one level, and
+// when there's nothing to undo it moves focus out as usual, so the keyboard can still leave the editor.
+const TabIndent = Extension.create({
+  name: 'tabIndent',
+  addKeyboardShortcuts() {
+    const lineStarts = () => {
+      const { from, to } = this.editor.state.selection;
+      const starts: number[] = [];
+      this.editor.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.isTextblock) starts.push(pos + 1);
+      });
+      return starts.reverse(); // edit from the end so earlier positions stay valid
+    };
+    return {
+      Tab: () => {
+        if (this.editor.isActive('listItem')) return this.editor.commands.sinkListItem('listItem') || true;
+        const { state, view } = this.editor;
+        const tr = state.tr;
+        if (state.selection.empty) tr.insertText('\t');
+        else for (const p of lineStarts()) tr.insertText('\t', p);
+        view.dispatch(tr);
+        return true;
+      },
+      'Shift-Tab': () => {
+        if (this.editor.isActive('listItem')) return this.editor.commands.liftListItem('listItem');
+        const { state, view } = this.editor;
+        const tr = state.tr;
+        const { empty, from } = state.selection;
+        if (empty && state.doc.textBetween(from - 1, from) === '\t') tr.delete(from - 1, from);
+        else for (const p of lineStarts()) if (state.doc.textBetween(p, p + 1) === '\t') tr.delete(p, p + 1);
+        if (!tr.docChanged) return false;
+        view.dispatch(tr);
+        return true;
+      },
+    };
+  },
+});
+
 const imageFile = (files?: FileList | null) => Array.from(files ?? []).find((f) => f.type.startsWith('image/'));
 
 function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: Status; onImage: (f: File) => void; refine: ReactNode }) {
@@ -301,7 +340,7 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
 
   const editor = useEditor({
     // StarterKit includes Link. Clicking a link while editing shouldn't navigate away.
-    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Image, TextStyle, FontFamily, FontSize],
+    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Image, TextStyle, FontFamily, FontSize, TabIndent],
     content: note.content,
     onUpdate: ({ editor: e }) => queue({ content: e.getJSON() }),
     editorProps: {
