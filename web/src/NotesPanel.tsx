@@ -4,7 +4,7 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
-import { api, ApiError, uploadImage, type Note, type NoteType, type WeekDetail } from './api';
+import { api, ApiError, uploadImage, type Note, type Section, type WeekDetail } from './api';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import { dashedBtn, Wobble } from './ui';
 
@@ -219,16 +219,16 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
   );
 }
 
-export default function NotesPanel({ weekId, type, notes, activeId, setActiveId }: { weekId: string; type: NoteType; notes: Note[]; activeId?: string; setActiveId: (id: string) => void }) {
+export default function NotesPanel({ weekId, section, notes, activeId, setActiveId }: { weekId: string; section: Section; notes: Note[]; activeId?: string; setActiveId: (id: string) => void }) {
   const qc = useQueryClient();
-  const list = notes.filter((n) => n.type === type);
+  const list = notes.filter((n) => n.sectionId === section.id);
   const note = list.find((n) => n.id === activeId) ?? list[0];
   const [failed, setFailed] = useState(false);
 
   const add = async () => {
     setFailed(false);
     try {
-      const created = await api<Note>(`/weeks/${weekId}/notes`, { type, title: 'untitled' });
+      const created = await api<Note>(`/weeks/${weekId}/notes`, { sectionId: section.id, title: 'untitled' });
       qc.setQueryData<WeekDetail>(['week', weekId], (d) => d && { ...d, notes: [...d.notes, created] });
       setActiveId(created.id);
     } catch {
@@ -264,7 +264,7 @@ export default function NotesPanel({ weekId, type, notes, activeId, setActiveId 
           onDeleted={() => qc.setQueryData<WeekDetail>(['week', weekId], (d) => d && { ...d, notes: d.notes.filter((n) => n.id !== note.id) })}
         />
       ) : (
-        <p className="font-hand text-[20px] text-ink-mute">No {type} notes this week yet.</p>
+        <p className="font-hand text-[20px] text-ink-mute">No notes in “{section.name}” this week yet.</p>
       )}
     </div>
   );

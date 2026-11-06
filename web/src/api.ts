@@ -9,14 +9,16 @@ export type Internship = {
   startDate: string;
   endDate: string;
   trackingStartDate: string;
+  sections: Section[];
   weeks: Week[];
 };
 
 export type Me = { id: string; email: string; name: string };
 export type WeekTask = { id: string; title: string; done: boolean; fromWeek: number | null };
 export type ReflectionData = { learnt: string; wentWell: string; needHelp: string };
-export type NoteType = 'dev' | 'research';
-export type Note = { id: string; type: NoteType; title: string; content: object; position: number };
+// A notes tab. It belongs to the internship, so every week shows it.
+export type Section = { id: string; name: string; position: number };
+export type Note = { id: string; sectionId: string; title: string; content: object; position: number };
 export type WeekDetail = Week & { tasks: WeekTask[]; reflection: ReflectionData; notes: Note[] };
 
 export class ApiError extends Error {

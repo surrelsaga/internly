@@ -1,18 +1,137 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, ApiError, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Week, type WeekDetail } from './api';
+import { api, ApiError, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Section, type Week, type WeekDetail } from './api';
 import NotesPanel from './NotesPanel';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import TasksRail from './TasksRail';
-import { Marker, Tape, Wobble } from './ui';
+import { dashedBtn, Marker, Tape, Wobble } from './ui';
 
-type Tab = 'dev' | 'research' | 'reflection';
+// A section id, or the fixed reflection tab.
+type Tab = string;
+const REFLECTION = 'reflection';
+const tabClass = (on: boolean) => `min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent'}`;
 
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'dev', label: 'dev notes' },
-  { id: 'research', label: 'research notes' },
-  { id: 'reflection', label: 'reflection' },
-];
+// The user's note tabs, then reflection, then "+ new tab". Click the open tab (or double-click any) to rename it.
+function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setTab: (t: Tab) => void }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<{ id: string; draft: string } | null>(null);
+  const [error, setError] = useState('');
+  const [adding, setAdding] = useState(false);
+  const cancelled = useRef(false);
+  const setSections = (f: (s: Section[]) => Section[]) => qc.setQueryData<Internship>(['internship'], (d) => d && { ...d, sections: f(d.sections) });
+  const rename = (s: Section) => {
+    cancelled.current = false;
+    setError('');
+    setEditing({ id: s.id, draft: s.name });
+  };
+
+  const save = async () => {
+    const e = editing;
+    setEditing(null);
+    const old = sections.find((s) => s.id === e?.id);
+    const name = e?.draft.trim();
+    if (cancelled.current || !old || !name || name === old.name) return;
+    const named = (n: string) => setSections((ss) => ss.map((s) => (s.id === old.id ? { ...s, name: n } : s)));
+    named(name);
+    try {
+      await api(`/sections/${old.id}`, { name }, 'PATCH');
+    } catch {
+      named(old.name);
+      setError('could not rename the tab, try again');
+    }
+  };
+
+  const add = async () => {
+    setError('');
+    setAdding(true);
+    try {
+      const s = await api<Section>('/sections', { name: 'untitled' });
+      setSections((ss) => [...ss, s]);
+      setTab(s.id);
+      rename(s);
+    } catch {
+      setError('could not add a tab, try again');
+    }
+    setAdding(false);
+  };
+
+  // An empty tab goes straight away. One with notes in any week asks first, since they go with it.
+  const remove = async (s: Section) => {
+    cancelled.current = true;
+    setEditing(null);
+    setError('');
+    const failed = () => setError('could not delete the tab, try again');
+    try {
+      await api(`/sections/${s.id}`, undefined, 'DELETE');
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) return failed();
+      if (!window.confirm(`${e.message} Delete “${s.name}” and all of them?`)) return;
+      try {
+        await api(`/sections/${s.id}?force=true`, undefined, 'DELETE');
+      } catch {
+        return failed();
+      }
+    }
+    const rest = sections.filter((x) => x.id !== s.id);
+    setSections(() => rest);
+    if (tab === s.id) setTab(rest[0]?.id ?? REFLECTION);
+  };
+
+  // Keeps focus in the input, so blur doesn't save before delete runs.
+  const keepFocus = (e: { preventDefault(): void }) => e.preventDefault();
+
+  return (
+    <div role="tablist" aria-label="Sections" className="mt-[26px] mb-[22px] flex flex-wrap items-center gap-2.5">
+      {sections.map((s) =>
+        editing?.id === s.id ? (
+          <span key={s.id} className="flex items-center gap-2">
+            <input
+              aria-label="Tab name"
+              autoFocus
+              onFocus={(e) => e.currentTarget.select()}
+              value={editing.draft}
+              maxLength={40}
+              onChange={(e) => setEditing({ id: s.id, draft: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') {
+                  cancelled.current = true;
+                  e.currentTarget.blur();
+                }
+              }}
+              onBlur={() => void save()}
+              size={Math.max(6, editing.draft.length + 1)}
+              className={`${tabClass(true)} outline-2 outline-ink`}
+            />
+            <button type="button" onPointerDown={keepFocus} onMouseDown={keepFocus} onClick={() => void remove(s)} className={`min-h-11 rounded-full px-4 text-[17px] ${dashedBtn}`}>
+              delete tab
+            </button>
+          </span>
+        ) : (
+          <button
+            key={s.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === s.id}
+            title={tab === s.id ? 'click to rename' : 'double-click to rename'}
+            onClick={() => (tab === s.id ? rename(s) : setTab(s.id))}
+            onDoubleClick={() => rename(s)}
+            className={tabClass(tab === s.id)}
+          >
+            {s.name}
+          </button>
+        ),
+      )}
+      <button type="button" role="tab" aria-selected={tab === REFLECTION} onClick={() => setTab(REFLECTION)} className={tabClass(tab === REFLECTION)}>
+        reflection<span aria-hidden="true" className="text-redpen"> *</span>
+      </button>
+      <button type="button" disabled={adding} onClick={() => void add()} className={`min-h-12 rounded-tab px-5 text-[21px] ${dashedBtn}`}>
+        + new tab
+      </button>
+      {error && <span role="alert" className="font-hand text-[17px] text-redpen">{error}</span>}
+    </div>
+  );
+}
 
 function WeekDropdown({ internship, week, lock }: { internship: Internship; week: Week; lock: Week | null }) {
   const [open, setOpen] = useState(false);
@@ -167,7 +286,9 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
   const day = dayOfWeek(week);
   const locked = lock?.id === week.id;
   // ?tab=reflection opens that tab (the Friday email links there); a locked week always does
-  const [tab, setTab] = useState<Tab>(() => (locked || new URLSearchParams(location.search).get('tab') === 'reflection' ? 'reflection' : 'dev'));
+  const sections = internship.sections;
+  const [tab, setTab] = useState<Tab>(() => (locked || new URLSearchParams(location.search).get('tab') === REFLECTION ? REFLECTION : (sections[0]?.id ?? REFLECTION)));
+  const section = sections.find((s) => s.id === tab);
   const detail = useQuery({ queryKey: ['week', week.id], queryFn: () => api<WeekDetail>(`/weeks/${week.id}`) });
   const tasks = detail.data?.tasks ?? [];
   // lives here so the chosen note (by id) survives a trip to the reflection tab
@@ -189,30 +310,16 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
         </p>
       )}
 
-      <div role="tablist" aria-label="Sections" className="mt-[26px] mb-[22px] flex flex-wrap gap-2.5">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={`min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${tab === t.id ? 'bg-highlighter' : 'swipe bg-transparent'}`}
-          >
-            {t.label}
-            {t.id === 'reflection' && <span aria-hidden="true" className="text-redpen"> *</span>}
-          </button>
-        ))}
-      </div>
+      <TabBar sections={sections} tab={tab} setTab={setTab} />
 
       <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
         <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">
           {!detail.data ? (
             <p className="font-hand text-[23px]">loading…</p>
-          ) : tab === 'reflection' ? (
-            <Reflection week={week} initial={detail.data.reflection} locked={locked} />
+          ) : section ? (
+            <NotesPanel weekId={week.id} section={section} notes={detail.data.notes} activeId={active[tab]} setActiveId={(id) => setActive({ ...active, [tab]: id })} />
           ) : (
-            <NotesPanel weekId={week.id} type={tab} notes={detail.data.notes} activeId={active[tab]} setActiveId={(id) => setActive({ ...active, [tab]: id })} />
+            <Reflection week={week} initial={detail.data.reflection} locked={locked} />
           )}
         </div>
         <TasksRail week={week} tasks={tasks} />
