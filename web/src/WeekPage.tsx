@@ -153,25 +153,30 @@ function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab;
         }
         const s = sections.find((x) => x.id === id)!;
         return editing?.id === s.id ? (
-          <input
-            key={s.id}
-            aria-label="Tab name"
-            autoFocus
-            onFocus={(e) => e.currentTarget.select()}
-            value={editing.draft}
-            maxLength={40}
-            onChange={(e) => setEditing({ id: s.id, draft: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-              if (e.key === 'Escape') {
-                cancelled.current = true;
-                e.currentTarget.blur();
-              }
-            }}
-            onBlur={() => void save()}
-            size={Math.max(6, editing.draft.length + 1)}
-            className={`${tabClass(true)} outline-2 outline-ink`}
-          />
+          // The invisible copy of the text sets the width, so the box fits the name exactly and grows as you type.
+          <span key={s.id} className="inline-grid">
+            <span aria-hidden="true" className={`${tabClass(true)} invisible col-start-1 row-start-1 whitespace-pre`}>
+              {editing.draft || ' '}
+            </span>
+            <input
+              aria-label="Tab name"
+              autoFocus
+              onFocus={(e) => e.currentTarget.select()}
+              value={editing.draft}
+              maxLength={40}
+              onChange={(e) => setEditing({ id: s.id, draft: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') {
+                  cancelled.current = true;
+                  e.currentTarget.blur();
+                }
+              }}
+              onBlur={() => void save()}
+              size={1}
+              className={`${tabClass(true)} col-start-1 row-start-1 w-0 min-w-full outline-2 outline-ink`}
+            />
+          </span>
         ) : (
           <span
             key={s.id}
