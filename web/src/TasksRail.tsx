@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Week, type WeekDetail, type WeekTask } from './api';
-import { Checkbox, Marker, Tape, Wobble } from './ui';
+import { Checkbox, dashedBtn, Marker, Tape, Wobble } from './ui';
 
 function TaskRow({ task, onToggle, onRename, onDelete }: { task: WeekTask; onToggle: () => void; onRename: (title: string) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -53,27 +53,46 @@ function TaskRow({ task, onToggle, onRename, onDelete }: { task: WeekTask; onTog
   );
 }
 
+// One step the undo button can take back: what it says, and the request that reverses it.
+type Undo = { label: string; run: () => Promise<unknown> };
+
 export default function TasksRail({ week, tasks }: { week: Week; tasks: WeekTask[] }) {
   const qc = useQueryClient();
   const key = ['week', week.id];
   const [title, setTitle] = useState('');
   const refresh = () => qc.invalidateQueries({ queryKey: ['week'] });
+  // ponytail: kept in memory for this week's page only; leaving the week or reloading clears it.
+  const [history, setHistory] = useState<Undo[]>([]);
+  const remember = (u: Undo) => setHistory((h) => [...h.slice(-29), u]);
+  const check = (t: WeekTask) => (t.done ? { done: false } : { done: true, weekId: week.id });
 
   const add = useMutation({
-    mutationFn: (t: string) => api('/tasks', { title: t, weekId: week.id }),
-    onSuccess: () => setTitle(''),
+    mutationFn: (t: string) => api<{ id: string; title: string }>('/tasks', { title: t, weekId: week.id }),
+    onSuccess: (t) => {
+      setTitle('');
+      remember({ label: `adding “${t.title}”`, run: () => api(`/tasks/${t.id}`, undefined, 'DELETE') });
+    },
     onSettled: refresh,
   });
   const rename = useMutation({
-    mutationFn: (v: { id: string; title: string }) => api(`/tasks/${v.id}`, { title: v.title }, 'PATCH'),
+    mutationFn: (v: { task: WeekTask; title: string }) => api(`/tasks/${v.task.id}`, { title: v.title }, 'PATCH'),
+    onSuccess: (_r, v) => remember({ label: `renaming “${v.task.title}”`, run: () => api(`/tasks/${v.task.id}`, { title: v.task.title }, 'PATCH') }),
     onSettled: refresh,
   });
   const remove = useMutation({
-    mutationFn: (id: string) => api(`/tasks/${id}`, undefined, 'DELETE'),
+    mutationFn: (t: WeekTask) => api(`/tasks/${t.id}`, undefined, 'DELETE'),
+    onSuccess: (_r, t) => remember({ label: `deleting “${t.title}”`, run: () => api(`/tasks/${t.id}/restore`, {}) }),
+    onSettled: refresh,
+  });
+  const undo = useMutation({
+    mutationFn: (u: Undo) => u.run(),
+    onMutate: () => setHistory((h) => h.slice(0, -1)),
     onSettled: refresh,
   });
   const toggle = useMutation({
-    mutationFn: (t: WeekTask) => api(`/tasks/${t.id}`, t.done ? { done: false } : { done: true, weekId: week.id }, 'PATCH'),
+    mutationFn: (t: WeekTask) => api(`/tasks/${t.id}`, check(t), 'PATCH'),
+    // after the toggle, the same task with `done` flipped; toggling that again reverses it
+    onSuccess: (_r, t) => remember({ label: `${t.done ? 'unchecking' : 'checking'} “${t.title}”`, run: () => api(`/tasks/${t.id}`, check({ ...t, done: !t.done }), 'PATCH') }),
     // Tick instantly, roll back if the server says no.
     onMutate: async (t) => {
       await qc.cancelQueries({ queryKey: key });
@@ -90,19 +109,37 @@ export default function TasksRail({ week, tasks }: { week: Week; tasks: WeekTask
     const t = title.trim();
     if (t) add.mutate(t);
   };
-  const error = [add, rename, remove, toggle].find((m) => m.error)?.error;
+  const error = [add, rename, remove, toggle, undo].find((m) => m.error)?.error;
+  const last = history[history.length - 1];
+  const busy = [add, rename, remove, toggle, undo].some((m) => m.isPending);
 
   return (
     <aside aria-labelledby="tasks-title" className="order-first max-w-[340px] min-[901px]:sticky min-[901px]:top-4 min-[901px]:order-none min-[901px]:flex-[1_1_280px] min-[901px]:self-start">
       <div className="relative -rotate-[0.4deg] px-[22px] pt-[34px] pb-[22px]">
         <Wobble />
         <Tape className="-top-[13px] left-1/2 -ml-11 h-[26px] w-[88px] -rotate-[2.5deg] bg-[rgba(196,169,125,0.45)]" />
-        <h2 id="tasks-title" className="mb-1 font-caveat text-[42px] leading-none font-bold">
-          <Marker>tasks</Marker>
-        </h2>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h2 id="tasks-title" className="font-caveat text-[42px] leading-none font-bold">
+            <Marker>tasks</Marker>
+          </h2>
+          <button
+            type="button"
+            disabled={!last || busy}
+            onClick={() => last && undo.mutate(last)}
+            aria-label={last ? `Undo ${last.label}` : 'Nothing to undo'}
+            title={last ? `undo ${last.label}` : 'nothing to undo'}
+            className={`flex min-h-9 items-center gap-1.5 rounded-full px-3 text-[17px] ${dashedBtn} disabled:cursor-default disabled:opacity-40`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9 14 L4 9 L9 4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4.5 9 H14 C 18 9, 20.5 11.5, 20.5 15 C 20.5 18.5, 18 20.5, 14.5 20.5 H11" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+            undo
+          </button>
+        </div>
         <p className="mt-1.5 mb-3 font-hand text-base text-ink-soft">Unchecked ones move to next week.</p>
         {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} onToggle={() => toggle.mutate(t)} onRename={(v) => rename.mutate({ id: t.id, title: v })} onDelete={() => remove.mutate(t.id)} />
+          <TaskRow key={t.id} task={t} onToggle={() => toggle.mutate(t)} onRename={(v) => rename.mutate({ task: t, title: v })} onDelete={() => remove.mutate(t)} />
         ))}
         <form onSubmit={submit} className="mt-4 flex flex-wrap items-center gap-2.5">
           <label htmlFor="new-task" className="sr-only">New task</label>
