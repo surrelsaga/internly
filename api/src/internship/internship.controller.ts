@@ -13,7 +13,7 @@ import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { DataSource, In } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
-import { Note } from '../notes/note.entity.js';
+import { Note, Section } from '../notes/note.entity.js';
 import { pickReflection } from '../reflection/reflection.controller.js';
 import { Reflection } from '../reflection/reflection.entity.js';
 import { ownedWeek, weekTasks } from '../tasks/queries.js';
@@ -73,7 +73,8 @@ export class InternshipController {
     // reflected = "What I learnt" is not blank
     const reflections = await this.ds.getRepository(Reflection).find({ select: { weekId: true, learnt: true }, where: { weekId: In(weeks.map((w) => w.id)) } });
     const reflected = new Set(reflections.filter((r) => r.learnt.trim()).map((r) => r.weekId));
-    return { ...internship, weeks: weeks.map((w) => ({ ...w, reflected: reflected.has(w.id) })) };
+    const sections = await this.ds.getRepository(Section).find({ select: { id: true, name: true, position: true }, where: { internshipId: internship.id }, order: { position: 'ASC' } });
+    return { ...internship, sections, weeks: weeks.map((w) => ({ ...w, reflected: reflected.has(w.id) })) };
   }
 
   // Declared before :id so ':id' doesn't swallow it.
@@ -91,7 +92,7 @@ export class InternshipController {
     const week = await ownedWeek(this.ds, user.id, id);
     if (!week) throw new NotFoundException();
     const reflection = await this.ds.getRepository(Reflection).findOneBy({ weekId: week.id });
-    const notes = await this.ds.getRepository(Note).find({ where: { weekId: week.id }, order: { type: 'ASC', position: 'ASC' } });
+    const notes = await this.ds.getRepository(Note).find({ where: { weekId: week.id }, order: { position: 'ASC' } });
     return { ...week, tasks: await weekTasks(this.ds, week), reflection: pickReflection(reflection), notes };
   }
 }

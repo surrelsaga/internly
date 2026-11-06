@@ -5,7 +5,7 @@ import { vi } from 'vitest';
 import { ownerAgent } from './auth.js';
 import { AppModule } from '../src/app.module.js';
 import { Internship, Week } from '../src/internship/internship.entity.js';
-import { Note } from '../src/notes/note.entity.js';
+import { Note, Section } from '../src/notes/note.entity.js';
 import { User } from '../src/users/user.entity.js';
 
 vi.mock('../src/notes/cloudinary.js', () => ({ uploadToCloudinary: vi.fn(async () => 'https://res.cloudinary.test/pic.png') }));
@@ -14,8 +14,14 @@ describe('notes (e2e)', () => {
   let app: INestApplication;
   let weeks: { id: string }[];
   let agent: Awaited<ReturnType<typeof ownerAgent>>;
-  const create = (n: number, type: string, title: string) => agent.post(`/api/weeks/${weeks[n].id}/notes`).send({ type, title });
-  const listed = async (n: number) => (await agent.get(`/api/weeks/${weeks[n].id}`).expect(200)).body.notes as { id: string; type: string; title: string; position: number }[];
+  // tab name -> section id
+  const tab: Record<string, string> = {};
+  const create = (n: number, type: string, title: string) => agent.post(`/api/weeks/${weeks[n].id}/notes`).send({ sectionId: tab[type], title });
+  const listed = async (n: number) => {
+    const notes = (await agent.get(`/api/weeks/${weeks[n].id}`).expect(200)).body.notes as { id: string; sectionId: string; title: string; position: number }[];
+    const name = Object.fromEntries(Object.entries(tab).map(([k, v]) => [v, k]));
+    return notes.map((x) => ({ ...x, type: name[x.sectionId] })).sort((a, b) => a.type.localeCompare(b.type) || a.position - b.position);
+  };
 
   beforeAll(async () => {
     const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -25,13 +31,14 @@ describe('notes (e2e)', () => {
     agent = await ownerAgent(app);
     const { body } = await agent.post('/api/internship').send({ company: 'Speedback', startDate: '2026-10-05', endDate: '2026-11-01' }).expect(201);
     weeks = body.weeks;
+    for (const name of ['dev', 'research']) tab[name] = (await agent.post('/api/sections').send({ name }).expect(201)).body.id;
   });
 
   afterAll(() => app.close());
 
   it('creates, updates and deletes a note', async () => {
     const { body: note } = await create(0, 'dev', 'whatsapp flow').expect(201);
-    expect(note).toMatchObject({ weekId: weeks[0].id, type: 'dev', title: 'whatsapp flow', position: 0 });
+    expect(note).toMatchObject({ weekId: weeks[0].id, sectionId: tab.dev, title: 'whatsapp flow', position: 0 });
 
     const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello' }] }] };
     const { body: updated } = await agent.patch(`/api/notes/${note.id}`).send({ title: 'renamed', content: doc }).expect(200);
@@ -42,7 +49,8 @@ describe('notes (e2e)', () => {
     await agent.patch(`/api/notes/${note.id}`).send({ content: 'nope' }).expect(400);
     await agent.patch(`/api/notes/${note.id}`).send({ content: null }).expect(400);
     await agent.patch(`/api/notes/${note.id}`).send({ title: null }).expect(400);
-    await create(0, 'other', 'x').expect(400);
+    await agent.post(`/api/weeks/${weeks[0].id}/notes`).send({ title: 'x' }).expect(400);
+    await agent.post(`/api/weeks/${weeks[0].id}/notes`).send({ sectionId: 'nope', title: 'x' }).expect(400);
 
     await agent.delete(`/api/notes/${note.id}`).expect(204);
     expect(await listed(0)).toEqual([]);
@@ -79,9 +87,12 @@ describe('notes (e2e)', () => {
       lastEmailedWeekId: null,
     });
     const w = await ds.getRepository(Week).save({ internshipId: i.id, number: 1, startDate: '2026-10-05', endDate: '2026-10-11' });
-    const theirs = await ds.getRepository(Note).save({ weekId: w.id, type: 'dev', title: 'secret', content: { type: 'doc' }, position: 0 });
+    const s = await ds.getRepository(Section).save({ internshipId: i.id, name: 'theirs', position: 0 });
+    const theirs = await ds.getRepository(Note).save({ weekId: w.id, sectionId: s.id, title: 'secret', content: { type: 'doc' }, position: 0 });
 
-    await agent.post(`/api/weeks/${w.id}/notes`).send({ type: 'dev', title: 'x' }).expect(404);
+    await agent.post(`/api/weeks/${w.id}/notes`).send({ sectionId: s.id, title: 'x' }).expect(404);
+    // my week, their tab
+    await agent.post(`/api/weeks/${weeks[0].id}/notes`).send({ sectionId: s.id, title: 'x' }).expect(404);
     await agent.patch(`/api/notes/${theirs.id}`).send({ title: 'mine now' }).expect(404);
     await agent.delete(`/api/notes/${theirs.id}`).expect(404);
     await agent.get(`/api/weeks/${w.id}`).expect(404);

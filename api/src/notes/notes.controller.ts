@@ -1,18 +1,30 @@
-import { Body, Controller, Delete, HttpCode, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Delete,
+  HttpCode,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsObject, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
+import { IsInt, IsNotEmpty, IsObject, IsString, IsUUID, MaxLength, Min, ValidateIf } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
 import { Internship, Week } from '../internship/internship.entity.js';
 import { ownedWeek } from '../tasks/queries.js';
 import { User } from '../users/user.entity.js';
-import { Note, type NoteType } from './note.entity.js';
+import { Note, Section } from './note.entity.js';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 class CreateNoteDto {
-  @IsIn(['dev', 'research'])
-  type: NoteType;
+  @IsUUID()
+  sectionId: string;
 
   @Transform(trim)
   @IsString()
@@ -40,6 +52,14 @@ class UpdateNoteDto {
   position?: number;
 }
 
+class SectionDto {
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  name: string;
+}
+
 // A uuid that matches nothing is a 404, not a 400.
 const uuid = new ParseUUIDPipe({ errorHttpStatusCode: 404 });
 
@@ -54,27 +74,67 @@ function ownedNote(ds: DataSource, userId: string, id: string) {
     .getOne();
 }
 
+function ownedSection(ds: DataSource, userId: string, id: string) {
+  return ds
+    .getRepository(Section)
+    .createQueryBuilder('s')
+    .innerJoin(Internship, 'i', 'i.id = s.internshipId')
+    .where('s.id = :id AND i.userId = :userId', { id, userId })
+    .getOne();
+}
+
+// ponytail: max + 1 isn't atomic. Two simultaneous creates could share a position; it's one person's journal.
+async function nextPosition(ds: DataSource, entity: typeof Note | typeof Section, where: Record<string, string>) {
+  const qb = ds.getRepository(entity).createQueryBuilder('x').select('max(x.position)', 'max');
+  for (const [k, v] of Object.entries(where)) qb.andWhere(`x.${k} = :${k}`, { [k]: v });
+  const row = await qb.getRawOne<{ max: number | null }>();
+  return row?.max == null ? 0 : row.max + 1;
+}
+
 @Controller()
 export class NotesController {
   constructor(private ds: DataSource) {}
+
+  @Post('sections')
+  async createSection(@CurrentUser() user: User, @Body() dto: SectionDto) {
+    const internship = await this.ds.getRepository(Internship).findOneBy({ userId: user.id });
+    if (!internship) throw new NotFoundException();
+    const position = await nextPosition(this.ds, Section, { internshipId: internship.id });
+    const s = await this.ds.getRepository(Section).save({ internshipId: internship.id, name: dto.name, position });
+    return { id: s.id, name: s.name, position: s.position };
+  }
+
+  @Patch('sections/:id')
+  async renameSection(@CurrentUser() user: User, @Param('id', uuid) id: string, @Body() dto: SectionDto) {
+    const s = await ownedSection(this.ds, user.id, id);
+    if (!s) throw new NotFoundException();
+    await this.ds.getRepository(Section).update(s.id, { name: dto.name });
+    return { id: s.id, name: dto.name, position: s.position };
+  }
+
+  // A tab with notes in any week needs ?force=true, because deleting it deletes those notes too.
+  @Delete('sections/:id')
+  @HttpCode(204)
+  async removeSection(@CurrentUser() user: User, @Param('id', uuid) id: string, @Query('force') force?: string) {
+    const s = await ownedSection(this.ds, user.id, id);
+    if (!s) throw new NotFoundException();
+    const count = await this.ds.getRepository(Note).countBy({ sectionId: s.id });
+    if (count && force !== 'true') throw new ConflictException(`This tab has ${count} ${count === 1 ? 'note' : 'notes'} across your weeks.`);
+    await this.ds.getRepository(Section).delete(s.id);
+  }
 
   @Post('weeks/:id/notes')
   async create(@CurrentUser() user: User, @Param('id', uuid) id: string, @Body() dto: CreateNoteDto) {
     const week = await ownedWeek(this.ds, user.id, id);
     if (!week) throw new NotFoundException();
-    const repo = this.ds.getRepository(Note);
-    const row = await repo
-      .createQueryBuilder('n')
-      .select('max(n.position)', 'max')
-      .where('n.weekId = :id AND n.type = :type', { id, type: dto.type })
-      .getRawOne<{ max: number | null }>();
-    // ponytail: max + 1 isn't atomic. Two simultaneous creates could share a position; it's one person's journal.
-    return repo.save({
+    const section = await ownedSection(this.ds, user.id, dto.sectionId);
+    if (!section || section.internshipId !== week.internshipId) throw new NotFoundException();
+    return this.ds.getRepository(Note).save({
       weekId: id,
-      type: dto.type,
+      sectionId: section.id,
       title: dto.title || 'untitled',
       content: { type: 'doc', content: [{ type: 'paragraph' }] },
-      position: row?.max == null ? 0 : row.max + 1,
+      position: await nextPosition(this.ds, Note, { weekId: id, sectionId: section.id }),
     });
   }
 
