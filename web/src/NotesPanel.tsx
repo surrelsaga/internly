@@ -128,6 +128,7 @@ function sizeAt(e: Editor) {
 }
 
 // One pill: − [size] +. Clicking the number lists common sizes; or type one (1 to 400) and press Enter.
+// Resizes the selected text, or, with nothing selected, what you type next.
 function FontSizeControl({ editor, size }: { editor: Editor; size: number }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -143,7 +144,8 @@ function FontSizeControl({ editor, size }: { editor: Editor; size: number }) {
     if (!Number.isFinite(n)) return void editor.commands.focus();
     const v = Math.min(400, Math.max(1, Math.round(n)));
     last.current = v;
-    formatChain(editor, (c) => c.setFontSize(`${v}px`));
+    // Only the selection, or with just a caret, the text typed next. Never the word already written.
+    editor.chain().focus().setFontSize(`${v}px`).run();
   };
   const step = 'flex h-full w-8 items-center justify-center rounded-[7px] border-0 bg-transparent p-0 font-sans text-[18px] leading-none text-ink hover:bg-highlighter/45';
   return (
