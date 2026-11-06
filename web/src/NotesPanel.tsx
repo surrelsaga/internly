@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
+import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style';
 import StarterKit from '@tiptap/starter-kit';
 import { api, ApiError, uploadImage, type Note, type Section, type WeekDetail } from './api';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
@@ -21,13 +22,99 @@ const statusText: Record<Status, string> = {
   uploadError: 'could not upload that image (png, jpeg, gif or webp, up to 5MB)',
 };
 
+// '' = the note's default font (Inter). Each value is the CSS font-family stored on the text.
+const FONTS = [
+  { label: 'Default', value: '' },
+  { label: 'Arial', value: 'Arial, sans-serif' },
+  { label: 'Comic Sans', value: '"Comic Sans MS", "Comic Sans", cursive' },
+  { label: 'Courier New', value: '"Courier New", monospace' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Roboto', value: 'Roboto, sans-serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Verdana', value: 'Verdana, sans-serif' },
+];
+const SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 30, 36, 48, 60, 72, 96];
+const ctrlBox = 'h-11 rounded-[9px] border-[1.5px] border-ink/55 bg-transparent text-ink';
+
+// The size at the caret: the one set on the text, else what the page renders there (16 for body text, 32 in a heading).
+function sizeAt(e: Editor) {
+  const set = e.getAttributes('textStyle').fontSize as string | undefined;
+  if (set) return parseFloat(set);
+  const { node } = e.view.domAtPos(e.state.selection.from);
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as HTMLElement);
+  return el ? Math.round(parseFloat(getComputedStyle(el).fontSize)) : 16;
+}
+
+// Google Docs style: − [size] +, and the box opens a list of common sizes. Type any size from 1 to 400 and press Enter.
+function FontSizeControl({ editor, size }: { editor: Editor; size: number }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const apply = (n: number) => {
+    setDraft(null);
+    setOpen(false);
+    if (!Number.isFinite(n)) return void editor.commands.focus();
+    editor.chain().focus().setFontSize(`${Math.min(400, Math.max(1, Math.round(n)))}px`).run();
+  };
+  const step = `${ctrlBox} w-9 font-sans text-[18px] leading-none`;
+  return (
+    <div className="relative flex items-center gap-1">
+      <button type="button" aria-label="Smaller text" onClick={() => apply(size - 1)} className={step}>−</button>
+      <input
+        aria-label="Font size"
+        inputMode="numeric"
+        value={draft ?? String(size)}
+        onFocus={(e) => {
+          e.currentTarget.select();
+          setOpen(true);
+        }}
+        onBlur={() => {
+          setDraft(null);
+          setOpen(false);
+        }}
+        onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') apply(draft === null ? size : parseInt(draft, 10));
+          if (e.key === 'Escape') apply(NaN);
+        }}
+        className={`${ctrlBox} w-12 text-center font-sans text-[15px]`}
+      />
+      <button type="button" aria-label="Bigger text" onClick={() => apply(size + 1)} className={step}>+</button>
+      {open && (
+        <div role="listbox" aria-label="Font sizes" className="absolute top-12 left-10 z-20 max-h-72 w-16 overflow-y-auto rounded-[9px] bg-paper py-1 shadow-[0_0_0_1.5px_#2A2520,3px_4px_0_rgba(42,37,32,0.15)]">
+          {SIZES.map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="option"
+              aria-selected={n === size}
+              // keep focus in the box until the size is applied
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => apply(n)}
+              className={`block w-full border-0 px-3 py-1 text-left font-sans text-[15px] text-ink hover:bg-highlighter/60 ${n === size ? 'bg-highlighter' : 'bg-transparent'}`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const imageFile = (files?: FileList | null) => Array.from(files ?? []).find((f) => f.type.startsWith('image/'));
 
 function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: Status; onImage: (f: File) => void; refine: ReactNode }) {
   // The editor doesn't re-render React on every transaction, so read the active marks explicitly.
   const s = useEditorState({
     editor,
-    selector: ({ editor: e }) => ({ bold: e.isActive('bold'), italic: e.isActive('italic'), link: e.isActive('link'), list: e.isActive('bulletList') }),
+    selector: ({ editor: e }) => ({
+      bold: e.isActive('bold'),
+      italic: e.isActive('italic'),
+      link: e.isActive('link'),
+      list: e.isActive('bulletList'),
+      font: (e.getAttributes('textStyle').fontFamily as string | undefined) ?? '',
+      size: sizeAt(e),
+    }),
   });
   const file = useRef<HTMLInputElement>(null);
   const link = () => {
@@ -38,8 +125,25 @@ function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: 
   };
   return (
     <div className="sticky top-0 z-[5] flex flex-wrap items-center justify-between gap-2.5 rounded-t-[14px_10px] border-b-[1.5px] border-dashed border-ink/35 bg-paper/95 px-7 py-3">
-      {/* Keep the caret in the editor when a toolbar button is pressed. */}
-      <div role="toolbar" aria-label="Formatting" onMouseDown={(e) => e.preventDefault()} className="flex flex-wrap gap-2">
+      {/* Keep the caret in the editor when a toolbar button is pressed (the font picker and size box still take focus). */}
+      <div role="toolbar" aria-label="Formatting" onMouseDown={(e) => !(e.target as HTMLElement).closest('select, input') && e.preventDefault()} className="flex flex-wrap gap-2">
+        <select
+          aria-label="Font"
+          value={FONTS.some((f) => f.value === s.font) ? s.font : ''}
+          onChange={(e) => {
+            const chain = editor.chain().focus();
+            (e.target.value ? chain.setFontFamily(e.target.value) : chain.unsetFontFamily()).run();
+          }}
+          style={{ fontFamily: s.font || undefined }}
+          className={`${ctrlBox} w-[150px] px-2 text-[15px] ${s.font ? '' : 'font-sans'}`}
+        >
+          {FONTS.map((f) => (
+            <option key={f.label} value={f.value} style={{ fontFamily: f.value || 'Inter, sans-serif' }}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+        <FontSizeControl editor={editor} size={s.size} />
         <button type="button" aria-label="Bold" aria-pressed={s.bold} onClick={() => editor.chain().focus().toggleBold().run()} className={`${toolBtn} font-sans text-[17px] font-medium ${s.bold ? on : ''}`}>B</button>
         <button type="button" aria-label="Italic" aria-pressed={s.italic} onClick={() => editor.chain().focus().toggleItalic().run()} className={`${toolBtn} font-sans text-[17px] italic ${s.italic ? on : ''}`}>I</button>
         <button type="button" aria-label="Add link" aria-pressed={s.link} onClick={link} className={`${toolBtn} ${s.link ? on : ''}`}>
@@ -132,7 +236,7 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
 
   const editor = useEditor({
     // StarterKit includes Link. Clicking a link while editing shouldn't navigate away.
-    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Image],
+    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Image, TextStyle, FontFamily, FontSize],
     content: note.content,
     onUpdate: ({ editor: e }) => queue({ content: e.getJSON() }),
     editorProps: {
