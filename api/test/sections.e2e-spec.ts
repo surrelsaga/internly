@@ -51,27 +51,32 @@ describe('sections (e2e)', () => {
     ]);
   });
 
-  it('reorders note tabs around reflection, only with every tab listed once', async () => {
+  it('reorders every tab, reflection included, only with each listed once', async () => {
     const [a, b] = await sections();
-    await agent.put('/api/sections/order').send({ ids: [a.id] }).expect(400);
-    await agent.put('/api/sections/order').send({ ids: [a.id, a.id] }).expect(400);
-    await agent.put('/api/sections/order').send({ ids: [a.id, b.id, '00000000-0000-4000-8000-000000000000'] }).expect(400);
-    await agent.put('/api/sections/order').send({ ids: 'nope' }).expect(400);
+    const order = (ids: unknown) => agent.put('/api/tabs/order').send({ ids });
+    await order([a.id, b.id]).expect(400); // reflection missing
+    await order([a.id, 'reflection', a.id]).expect(400);
+    await order([a.id, b.id, 'reflection', '00000000-0000-4000-8000-000000000000']).expect(400);
+    await order('nope').expect(400);
 
-    await agent.put('/api/sections/order').send({ ids: [b.id, a.id] }).expect(200);
-    expect((await sections()).map((s: { name: string; position: number }) => [s.name, s.position])).toEqual([
-      ['reading', 1],
+    await order([b.id, 'reflection', a.id]).expect(200);
+    const { body } = await agent.get('/api/internship');
+    expect(body.sections.map((s: { name: string; position: number }) => [s.name, s.position])).toEqual([
+      ['reading', 0],
       ['standups', 2],
     ]);
-    expect((await agent.get('/api/internship')).body.reflectionPosition).toBe(0);
+    expect(body.reflectionPosition).toBe(1);
     // a tab added later goes on the end
     const { body: c } = await agent.post('/api/sections').send({ name: 'later' }).expect(201);
     expect(c.position).toBe(3);
+    await order(['reflection', c.id, a.id, b.id]).expect(200);
+    expect((await agent.post('/api/sections').send({ name: 'last' }).expect(201)).body.position).toBe(4);
+    await agent.delete(`/api/sections/${(await sections()).find((s: { name: string }) => s.name === 'last').id}`).expect(204);
     await agent.delete(`/api/sections/${c.id}`).expect(204);
   });
 
   it('deletes an empty tab, and a tab with notes only with force', async () => {
-    const [reading, standups] = await sections();
+    const [standups, reading] = await sections();
     await agent.delete(`/api/sections/${reading.id}`).expect(204);
 
     await agent.post(`/api/weeks/${weekId}/notes`).send({ sectionId: standups.id, title: 'mon' }).expect(201);
@@ -98,7 +103,7 @@ describe('sections (e2e)', () => {
 
     await agent.patch(`/api/sections/${s.id}`).send({ name: 'mine now' }).expect(404);
     await agent.delete(`/api/sections/${s.id}?force=true`).expect(404);
-    await agent.put('/api/sections/order').send({ ids: [s.id] }).expect(400);
+    await agent.put('/api/tabs/order').send({ ids: [s.id, 'reflection'] }).expect(400);
     await agent.patch('/api/sections/not-a-uuid').send({ name: 'x' }).expect(404);
     expect(await ds.getRepository(Section).findOneByOrFail({ id: s.id })).toMatchObject({ name: 'secret' });
   });

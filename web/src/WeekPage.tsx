@@ -6,7 +6,7 @@ import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import TasksRail from './TasksRail';
 import { dashedBtn, Marker, Tape, Wobble } from './ui';
 
-// A section id, or the fixed reflection tab.
+// A section id, or the reflection tab.
 type Tab = string;
 const REFLECTION = 'reflection';
 const tabClass = (on: boolean) => `min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent'}`;
@@ -92,18 +92,16 @@ function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab;
   };
 
   // Moves the dragged tab into the hovered tab's place once the pointer passes its middle, so wide tabs don't flicker back and forth.
-  // Reflection stays where it is; the note tabs move around it.
-  const dragOver = (e: DragEvent, over: Section) => {
+  const dragOver = (e: DragEvent, overId: string) => {
     const d = drag.current;
-    if (!d || over.id === d.id) return;
-    const notes = order.filter((id) => id !== REFLECTION);
-    const from = notes.indexOf(d.id);
-    const to = notes.indexOf(over.id);
+    if (!d || overId === d.id) return;
+    const from = order.indexOf(d.id);
+    const to = order.indexOf(overId);
     const r = e.currentTarget.getBoundingClientRect();
     if (from < to ? e.clientX < r.left + r.width / 2 : e.clientX > r.left + r.width / 2) return;
-    notes.splice(to, 0, notes.splice(from, 1)[0]);
-    notes.splice(order.indexOf(REFLECTION), 0, REFLECTION);
-    setOrder(notes);
+    const next = [...order];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    setOrder(next);
   };
 
   // Dropped outside the tab bar (or Escape) puts it back; otherwise the new order is saved.
@@ -115,7 +113,7 @@ function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab;
     if (e.dataTransfer.dropEffect === 'none') return setOrder(d.before);
     if (order.join() === d.before.join()) return;
     try {
-      await api('/sections/order', { ids: order.filter((id) => id !== REFLECTION) }, 'PUT');
+      await api('/tabs/order', { ids: order }, 'PUT');
     } catch {
       setOrder(d.before);
       setError('could not move the tab, try again');
@@ -132,11 +130,25 @@ function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab;
       className="mt-[26px] mb-[22px] flex flex-wrap items-center gap-2.5"
     >
       {order.map((id) => {
+        // The wrapper is what drags, for every tab (reflection too), open or not.
+        const draggable = {
+          draggable: true,
+          onDragStart: (e: DragEvent) => {
+            e.dataTransfer.setData('text/plain', id); // Firefox won't start a drag without data
+            e.dataTransfer.effectAllowed = 'move';
+            drag.current = { id, before: order };
+            setDragging(id);
+          },
+          onDragOver: (e: DragEvent) => dragOver(e, id),
+          onDragEnd: (e: DragEvent) => void dragEnd(e),
+        };
         if (id === REFLECTION) {
           return (
-            <button key={id} type="button" role="tab" aria-selected={tab === REFLECTION} onClick={() => setTab(REFLECTION)} className={tabClass(tab === REFLECTION)}>
-              reflection<span aria-hidden="true" className="text-redpen"> *</span>
-            </button>
+            <span key={id} {...draggable} className={dragging === id ? 'opacity-40' : ''}>
+              <button type="button" role="tab" aria-selected={tab === REFLECTION} title="drag to move" onClick={() => setTab(REFLECTION)} className={`${tabClass(tab === REFLECTION)} cursor-grab active:cursor-grabbing`}>
+                reflection<span aria-hidden="true" className="text-redpen"> *</span>
+              </button>
+            </span>
           );
         }
         const s = sections.find((x) => x.id === id)!;
@@ -163,15 +175,7 @@ function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab;
         ) : (
           <span
             key={s.id}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('text/plain', s.name); // Firefox won't start a drag without data
-              e.dataTransfer.effectAllowed = 'move';
-              drag.current = { id: s.id, before: order };
-              setDragging(s.id);
-            }}
-            onDragOver={(e) => dragOver(e, s)}
-            onDragEnd={(e) => void dragEnd(e)}
+            {...draggable}
             className={`group relative ${dragging === s.id ? 'opacity-40' : ''}`}
           >
             <button
