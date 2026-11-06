@@ -39,22 +39,6 @@ const ctrlBox = 'h-11 rounded-[9px] border-[1.5px] border-ink/55 bg-transparent 
 const popover = 'absolute top-[50px] z-20 rounded-card bg-card p-1.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]';
 const optionRow = (on: boolean) => `block w-full rounded-chip border-0 px-3 py-1.5 text-left text-ink ${on ? 'bg-highlighter' : 'bg-transparent hover:bg-highlighter/45'}`;
 
-// A chain that formats the selection, or, with just a caret in (or at the edge of) a word, that whole word, the way
-// Google Docs does. The caret is put back afterwards. Otherwise it formats what you type next.
-function formatChain(e: Editor, apply: (c: ReturnType<Editor['chain']>) => ReturnType<Editor['chain']>) {
-  const { empty, $from, from } = e.state.selection;
-  if (!empty) return apply(e.chain().focus()).run();
-  // one character per leaf node (images), so string offsets line up with document positions
-  const text = $from.parent.textBetween(0, $from.parent.content.size, undefined, '\ufffc');
-  let a = $from.parentOffset;
-  let b = a;
-  while (a > 0 && /[\p{L}\p{N}_'-]/u.test(text[a - 1])) a--;
-  while (b < text.length && /[\p{L}\p{N}_'-]/u.test(text[b])) b++;
-  if (a === b) return apply(e.chain().focus()).run();
-  const start = $from.start();
-  return apply(e.chain().focus().setTextSelection({ from: start + a, to: start + b })).setTextSelection(from).run();
-}
-
 // Closes a pop-up on a click outside it or on Escape.
 function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
   useEffect(() => {
@@ -80,6 +64,7 @@ const arrowKeys = (ev: ReactKeyboardEvent<HTMLElement>) => {
 };
 
 // The font picker: the current font's name in its own typeface, and a list of fonts, each shown in itself.
+// Changes the selected text, or, with nothing selected, what you type next.
 function FontPicker({ editor, font }: { editor: Editor; font: string }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -87,7 +72,9 @@ function FontPicker({ editor, font }: { editor: Editor; font: string }) {
   const current = FONTS.find((f) => f.value === font) ?? FONTS[0];
   const pick = (value: string) => {
     setOpen(false);
-    formatChain(editor, (c) => (value ? c.setFontFamily(value) : c.unsetFontFamily()));
+    // Only the selection, or with just a caret, the text typed next. Never the word already written.
+    const chain = editor.chain().focus();
+    (value ? chain.setFontFamily(value) : chain.unsetFontFamily()).run();
   };
   return (
     <div ref={box} className="relative" onKeyDown={open ? arrowKeys : undefined}>
