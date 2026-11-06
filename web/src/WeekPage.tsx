@@ -11,18 +11,31 @@ type Tab = string;
 const REFLECTION = 'reflection';
 const tabClass = (on: boolean) => `min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent'}`;
 
-// The user's note tabs, then reflection, then "+ new tab". Click the open tab (or double-click any) to rename it,
+// Note tabs and reflection share one position scale; this is every tab id in display order.
+const tabOrder = (i: Pick<Internship, 'sections' | 'reflectionPosition'>) =>
+  [...i.sections.map((s) => ({ id: s.id, p: s.position })), { id: REFLECTION, p: i.reflectionPosition }].sort((a, b) => a.p - b.p).map((t) => t.id);
+
+// The user's tabs (reflection among them), then "+ new tab". Click the open tab (or double-click any) to rename it,
 // × to delete it, drag to reorder.
-function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setTab: (t: Tab) => void }) {
+function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab; setTab: (t: Tab) => void }) {
+  const { sections } = internship;
+  const order = tabOrder(internship);
   const qc = useQueryClient();
   const [editing, setEditing] = useState<{ id: string; draft: string } | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const cancelled = useRef(false);
   // The tab being dragged, and the order before the drag (to detect a change and to undo a failed save).
-  const drag = useRef<{ id: string; before: Section[] } | null>(null);
+  const drag = useRef<{ id: string; before: string[] } | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const setSections = (f: (s: Section[]) => Section[]) => qc.setQueryData<Internship>(['internship'], (d) => d && { ...d, sections: f(d.sections) });
+  // Puts the tabs in this order (positions become indexes; only the relative order matters).
+  const setOrder = (ids: string[]) =>
+    qc.setQueryData<Internship>(['internship'], (d) => {
+      if (!d) return d;
+      const sections = d.sections.map((s) => ({ ...s, position: ids.indexOf(s.id) })).sort((a, b) => a.position - b.position);
+      return { ...d, sections, reflectionPosition: ids.indexOf(REFLECTION) };
+    });
   const rename = (s: Section) => {
     cancelled.current = false;
     setError('');
@@ -74,22 +87,23 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
         return failed();
       }
     }
-    const rest = sections.filter((x) => x.id !== s.id);
-    setSections(() => rest);
-    if (tab === s.id) setTab(rest[0]?.id ?? REFLECTION);
+    setSections((ss) => ss.filter((x) => x.id !== s.id));
+    if (tab === s.id) setTab(order.find((id) => id !== s.id && id !== REFLECTION) ?? REFLECTION);
   };
 
   // Moves the dragged tab into the hovered tab's place once the pointer passes its middle, so wide tabs don't flicker back and forth.
+  // Reflection stays where it is; the note tabs move around it.
   const dragOver = (e: DragEvent, over: Section) => {
     const d = drag.current;
     if (!d || over.id === d.id) return;
-    const from = sections.findIndex((x) => x.id === d.id);
-    const to = sections.findIndex((x) => x.id === over.id);
+    const notes = order.filter((id) => id !== REFLECTION);
+    const from = notes.indexOf(d.id);
+    const to = notes.indexOf(over.id);
     const r = e.currentTarget.getBoundingClientRect();
     if (from < to ? e.clientX < r.left + r.width / 2 : e.clientX > r.left + r.width / 2) return;
-    const next = [...sections];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    setSections(() => next);
+    notes.splice(to, 0, notes.splice(from, 1)[0]);
+    notes.splice(order.indexOf(REFLECTION), 0, REFLECTION);
+    setOrder(notes);
   };
 
   // Dropped outside the tab bar (or Escape) puts it back; otherwise the new order is saved.
@@ -98,13 +112,12 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
     drag.current = null;
     setDragging(null);
     if (!d) return;
-    if (e.dataTransfer.dropEffect === 'none') return setSections(() => d.before);
-    const ids = sections.map((x) => x.id);
-    if (ids.join() === d.before.map((x) => x.id).join()) return;
+    if (e.dataTransfer.dropEffect === 'none') return setOrder(d.before);
+    if (order.join() === d.before.join()) return;
     try {
-      await api('/sections/order', { ids }, 'PUT');
+      await api('/sections/order', { ids: order.filter((id) => id !== REFLECTION) }, 'PUT');
     } catch {
-      setSections(() => d.before);
+      setOrder(d.before);
       setError('could not move the tab, try again');
     }
   };
@@ -118,8 +131,16 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
       onDrop={(e) => e.preventDefault()}
       className="mt-[26px] mb-[22px] flex flex-wrap items-center gap-2.5"
     >
-      {sections.map((s) =>
-        editing?.id === s.id ? (
+      {order.map((id) => {
+        if (id === REFLECTION) {
+          return (
+            <button key={id} type="button" role="tab" aria-selected={tab === REFLECTION} onClick={() => setTab(REFLECTION)} className={tabClass(tab === REFLECTION)}>
+              reflection<span aria-hidden="true" className="text-redpen"> *</span>
+            </button>
+          );
+        }
+        const s = sections.find((x) => x.id === id)!;
+        return editing?.id === s.id ? (
           <input
             key={s.id}
             aria-label="Tab name"
@@ -146,7 +167,7 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
             onDragStart={(e) => {
               e.dataTransfer.setData('text/plain', s.name); // Firefox won't start a drag without data
               e.dataTransfer.effectAllowed = 'move';
-              drag.current = { id: s.id, before: sections };
+              drag.current = { id: s.id, before: order };
               setDragging(s.id);
             }}
             onDragOver={(e) => dragOver(e, s)}
@@ -180,11 +201,8 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
               </span>
             </button>
           </span>
-        ),
-      )}
-      <button type="button" role="tab" aria-selected={tab === REFLECTION} onClick={() => setTab(REFLECTION)} className={tabClass(tab === REFLECTION)}>
-        reflection<span aria-hidden="true" className="text-redpen"> *</span>
-      </button>
+        );
+      })}
       <button type="button" disabled={adding} onClick={() => void add()} className={`min-h-12 rounded-tab px-5 text-[21px] ${dashedBtn}`}>
         + new tab
       </button>
@@ -370,7 +388,7 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
         </p>
       )}
 
-      <TabBar sections={sections} tab={tab} setTab={setTab} />
+      <TabBar internship={internship} tab={tab} setTab={setTab} />
 
       <div className="flex flex-col gap-9 min-[901px]:flex-row min-[901px]:items-start">
         <div className="min-w-0 min-[901px]:max-w-[820px] min-[901px]:flex-[999_1_560px]">

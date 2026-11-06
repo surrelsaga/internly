@@ -10,6 +10,8 @@ export type Internship = {
   endDate: string;
   trackingStartDate: string;
   sections: Section[];
+  // where the reflection tab sits among the note tabs (same scale as Section.position)
+  reflectionPosition: number;
   weeks: Week[];
 };
 

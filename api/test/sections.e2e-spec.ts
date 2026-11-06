@@ -30,27 +30,28 @@ describe('sections (e2e)', () => {
   it('a new internship starts with no tabs', async () => {
     const { body } = await agent.post('/api/internship').send({ company: 'Speedback', startDate: '2026-10-05', endDate: '2026-11-01' }).expect(201);
     expect(body.sections).toEqual([]);
+    expect(body.reflectionPosition).toBe(0);
     weekId = body.weeks[0].id;
   });
 
-  it('adds, renames and lists tabs in order', async () => {
+  it('adds tabs at the end, after reflection, renames and lists them in order', async () => {
     const { body: a } = await agent.post('/api/sections').send({ name: '  meetings  ' }).expect(201);
-    expect(a).toEqual({ id: a.id, name: 'meetings', position: 0 });
+    expect(a).toEqual({ id: a.id, name: 'meetings', position: 1 });
     const { body: b } = await agent.post('/api/sections').send({ name: 'reading' }).expect(201);
-    expect(b.position).toBe(1);
+    expect(b.position).toBe(2);
 
     await agent.post('/api/sections').send({ name: '   ' }).expect(400);
     await agent.post('/api/sections').send({ name: 'x'.repeat(41) }).expect(400);
     await agent.patch(`/api/sections/${a.id}`).send({ name: '' }).expect(400);
 
-    expect((await agent.patch(`/api/sections/${a.id}`).send({ name: 'standups' }).expect(200)).body).toEqual({ id: a.id, name: 'standups', position: 0 });
+    expect((await agent.patch(`/api/sections/${a.id}`).send({ name: 'standups' }).expect(200)).body).toEqual({ id: a.id, name: 'standups', position: 1 });
     expect(await sections()).toEqual([
-      { id: a.id, name: 'standups', position: 0 },
-      { id: b.id, name: 'reading', position: 1 },
+      { id: a.id, name: 'standups', position: 1 },
+      { id: b.id, name: 'reading', position: 2 },
     ]);
   });
 
-  it('reorders tabs, only with every tab listed once', async () => {
+  it('reorders note tabs around reflection, only with every tab listed once', async () => {
     const [a, b] = await sections();
     await agent.put('/api/sections/order').send({ ids: [a.id] }).expect(400);
     await agent.put('/api/sections/order').send({ ids: [a.id, a.id] }).expect(400);
@@ -59,12 +60,13 @@ describe('sections (e2e)', () => {
 
     await agent.put('/api/sections/order').send({ ids: [b.id, a.id] }).expect(200);
     expect((await sections()).map((s: { name: string; position: number }) => [s.name, s.position])).toEqual([
-      ['reading', 0],
-      ['standups', 1],
+      ['reading', 1],
+      ['standups', 2],
     ]);
+    expect((await agent.get('/api/internship')).body.reflectionPosition).toBe(0);
     // a tab added later goes on the end
     const { body: c } = await agent.post('/api/sections').send({ name: 'later' }).expect(201);
-    expect(c.position).toBe(2);
+    expect(c.position).toBe(3);
     await agent.delete(`/api/sections/${c.id}`).expect(204);
   });
 
@@ -118,6 +120,7 @@ describe('sections migration', () => {
 
   it('gives existing internships "dev notes" and "research notes" and moves their notes there', async () => {
     await ds.query(`truncate "internships" cascade`);
+    await ds.undoLastMigration(); // reflectionPosition
     await ds.undoLastMigration(); // back to notes.type
     const [{ id: userId }] = await ds.query(`select id from users limit 1`);
     const [{ id: iid }] = await ds.query(
@@ -144,5 +147,7 @@ describe('sections migration', () => {
       ['d2', 'dev notes', 1],
       ['r', 'research notes', 0],
     ]);
+    // reflection stays after the old tabs
+    expect((await ds.query(`select "reflectionPosition" from internships where id = $1`, [iid]))[0].reflectionPosition).toBe(2);
   });
 });

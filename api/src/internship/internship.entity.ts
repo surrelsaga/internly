@@ -24,6 +24,10 @@ export class Internship {
   // Step 8 uses this.
   @Column({ type: 'uuid', nullable: true })
   lastEmailedWeekId: string | null;
+
+  // Where the reflection tab sits among the note tabs (same scale as Section.position).
+  @Column({ type: 'int', default: 0 })
+  reflectionPosition: number;
 }
 
 @Entity('weeks')
