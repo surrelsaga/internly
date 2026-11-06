@@ -13,10 +13,11 @@ export function ownedWeek(ds: DataSource, userId: string, id: string) {
     .getOne();
 }
 
-export function ownedTask(ds: DataSource, userId: string, id: string) {
-  return ds
-    .getRepository(Task)
-    .createQueryBuilder('t')
+// withDeleted: also find a deleted task (only restore needs that).
+export function ownedTask(ds: DataSource, userId: string, id: string, withDeleted = false) {
+  const qb = ds.getRepository(Task).createQueryBuilder('t');
+  if (withDeleted) qb.withDeleted();
+  return qb
     .innerJoin(Internship, 'i', 'i.id = t.internshipId')
     .where('t.id = :id AND i.userId = :userId', { id, userId })
     .getOne();

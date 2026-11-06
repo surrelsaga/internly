@@ -41,6 +41,8 @@ describe('weekly email (e2e)', () => {
     await task('ticked in week 1', weeks[0].id);
     await task('ticked in week 2', weeks[1].id);
     await task('still open', null);
+    // checked in week 1, then deleted: not in the email
+    await ds.getRepository(Task).softDelete((await task('deleted after checking', weeks[0].id)).id);
   });
 
   afterAll(async () => {
@@ -62,6 +64,7 @@ describe('weekly email (e2e)', () => {
     expect(mail.text).toContain('ticked in week 1');
     expect(mail.text).not.toContain('ticked in week 2');
     expect(mail.text).not.toContain('still open');
+    expect(mail.text).not.toContain('deleted after checking');
     expect(mail.text).toContain(`/weeks/${weeks[0].id}?tab=reflection`);
     expect((await ds.getRepository(Internship).findOneByOrFail({ id: internship.id })).lastEmailedWeekId).toBe(weeks[0].id);
 

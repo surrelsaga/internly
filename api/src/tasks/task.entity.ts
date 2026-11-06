@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('tasks')
 export class Task {
@@ -20,4 +20,9 @@ export class Task {
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
+
+  // Set when deleted, so undo can restore it. TypeORM's finds and query builders skip these rows on their own.
+  // ponytail: deleted rows are never purged; one person's task list stays tiny. Add a cleanup job if that changes.
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deletedAt: Date | null;
 }

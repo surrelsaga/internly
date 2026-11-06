@@ -125,8 +125,8 @@ describe('sections migration', () => {
 
   it('gives existing internships "dev notes" and "research notes" and moves their notes there', async () => {
     await ds.query(`truncate "internships" cascade`);
-    await ds.undoLastMigration(); // reflectionPosition
-    await ds.undoLastMigration(); // back to notes.type
+    // back to before Sections (notes.type), however many migrations came after it
+    while ((await ds.query(`select 1 from migrations where name = 'Sections1700000005000'`)).length) await ds.undoLastMigration();
     const [{ id: userId }] = await ds.query(`select id from users limit 1`);
     const [{ id: iid }] = await ds.query(
       `insert into internships ("userId", company, "startDate", "endDate", "trackingStartDate") values ($1, 'Old', '2026-10-05', '2026-10-11', '2026-10-05') returning id`,

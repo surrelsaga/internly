@@ -88,6 +88,16 @@ export class TasksController {
   async remove(@CurrentUser() user: User, @Param('id', taskId) id: string) {
     const task = await ownedTask(this.ds, user.id, id);
     if (!task) throw new NotFoundException();
-    await this.ds.getRepository(Task).delete(task.id);
+    await this.ds.getRepository(Task).softDelete(task.id);
+  }
+
+  // Undo of a delete: the task comes back exactly as it was. Restoring one that isn't deleted is a no-op.
+  @Post(':id/restore')
+  @HttpCode(200)
+  async restore(@CurrentUser() user: User, @Param('id', taskId) id: string) {
+    const task = await ownedTask(this.ds, user.id, id, true);
+    if (!task) throw new NotFoundException();
+    await this.ds.getRepository(Task).restore(task.id);
+    return { ...task, deletedAt: null };
   }
 }

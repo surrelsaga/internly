@@ -65,6 +65,26 @@ describe('tasks (e2e)', () => {
     await http().delete(`/api/tasks/${id}`).expect(404);
   });
 
+  it('restoring a deleted task brings it back exactly as it was', async () => {
+    const { body: a } = await http().post('/api/tasks').send({ title: 'Restore me', weekId: weeks[1].id }).expect(201);
+    await http().post('/api/tasks').send({ title: 'After it', weekId: weeks[1].id }).expect(201);
+    await http().patch(`/api/tasks/${a.id}`).send({ done: true, weekId: weeks[2].id }).expect(200);
+    const before = await Promise.all([1, 2, 3].map(tasksIn));
+
+    await http().delete(`/api/tasks/${a.id}`).expect(204);
+    // gone everywhere, and can't be edited while deleted
+    for (const n of [1, 2, 3]) expect((await tasksIn(n)).map((t: { id: string }) => t.id)).not.toContain(a.id);
+    await http().patch(`/api/tasks/${a.id}`).send({ title: 'x' }).expect(404);
+
+    const { body } = await http().post(`/api/tasks/${a.id}/restore`).expect(200);
+    expect(body).toMatchObject({ id: a.id, title: 'Restore me', createdWeekId: weeks[1].id, doneWeekId: weeks[2].id, deletedAt: null });
+    // same weeks, same checked state, same place in the list
+    expect(await Promise.all([1, 2, 3].map(tasksIn))).toEqual(before);
+    // restoring again is a no-op
+    await http().post(`/api/tasks/${a.id}/restore`).expect(200);
+    expect(await tasksIn(2)).toEqual(before[1]);
+  });
+
   it("another user's internship is 404", async () => {
     const ds = app.get(DataSource);
     const other = await ds.getRepository(User).save({ email: 'other@example.com', name: 'other', googleId: null });
@@ -84,6 +104,9 @@ describe('tasks (e2e)', () => {
     await http().patch(`/api/tasks/${t.id}`).send({ done: false }).expect(404);
     await http().delete(`/api/tasks/${t.id}`).expect(404);
     await http().delete('/api/tasks/nope').expect(404);
+    await ds.getRepository(Task).softDelete(t.id);
+    await http().post(`/api/tasks/${t.id}/restore`).expect(404);
+    await ds.getRepository(Task).restore(t.id);
     expect(await ds.getRepository(Task).findOneBy({ id: t.id })).toMatchObject({ title: 'Theirs' });
 
     // my own task can't be ticked into their week
