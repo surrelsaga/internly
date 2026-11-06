@@ -170,9 +170,14 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
               aria-label={`Delete tab “${s.name}”`}
               title="delete tab"
               onClick={() => void remove(s)}
-              className={`absolute -top-2 -right-2 size-6 items-center justify-center rounded-full border-0 bg-paper p-0 font-sans text-[15px] leading-none text-ink shadow-[0_0_0_1.5px_#2A2520] hover:bg-redpen hover:text-paper ${tab === s.id ? 'flex' : 'hidden group-focus-within:flex group-hover:flex'}`}
+              // 24px hit area (fine for touch), 16px badge you see
+              className={`group/del absolute -top-2 -right-2 size-6 items-center justify-center border-0 bg-transparent p-0 text-ink ${tab === s.id ? 'flex' : 'hidden group-focus-within:flex group-hover:flex'}`}
             >
-              ×
+              <span className="flex size-4 items-center justify-center rounded-full bg-paper shadow-[0_0_0_1.5px_#2A2520] group-hover/del:bg-redpen group-hover/del:text-paper">
+                <svg width="7" height="7" viewBox="0 0 8 8" fill="none" aria-hidden="true">
+                  <path d="M1.5 1.5 L6.5 6.5 M6.5 1.5 L1.5 6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </span>
             </button>
           </span>
         ),
