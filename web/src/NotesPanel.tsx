@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
@@ -31,10 +31,91 @@ const FONTS = [
   { label: 'Georgia', value: 'Georgia, serif' },
   { label: 'Roboto', value: 'Roboto, sans-serif' },
   { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
-  { label: 'Verdana', value: 'Verdana, sans-serif' },
 ];
+const fontCss = (value: string) => value || 'Inter, sans-serif';
 const SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 30, 36, 48, 60, 72, 96];
 const ctrlBox = 'h-11 rounded-[9px] border-[1.5px] border-ink/55 bg-transparent text-ink';
+// The pop-up lists: same card look as the week dropdown.
+const popover = 'absolute top-[50px] left-0 z-20 rounded-card bg-card p-1.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]';
+const optionRow = (on: boolean) => `block w-full rounded-chip border-0 px-3 py-1.5 text-left text-ink ${on ? 'bg-highlighter' : 'bg-transparent hover:bg-highlighter/45'}`;
+
+// A chain that formats the selection, or, with just a caret in (or at the edge of) a word, that whole word, the way
+// Google Docs does. The caret is put back afterwards. Otherwise it formats what you type next.
+function formatChain(e: Editor, apply: (c: ReturnType<Editor['chain']>) => ReturnType<Editor['chain']>) {
+  const { empty, $from, from } = e.state.selection;
+  if (!empty) return apply(e.chain().focus()).run();
+  // one character per leaf node (images), so string offsets line up with document positions
+  const text = $from.parent.textBetween(0, $from.parent.content.size, undefined, '\ufffc');
+  let a = $from.parentOffset;
+  let b = a;
+  while (a > 0 && /[\p{L}\p{N}_'-]/u.test(text[a - 1])) a--;
+  while (b < text.length && /[\p{L}\p{N}_'-]/u.test(text[b])) b++;
+  if (a === b) return apply(e.chain().focus()).run();
+  const start = $from.start();
+  return apply(e.chain().focus().setTextSelection({ from: start + a, to: start + b })).setTextSelection(from).run();
+}
+
+// Closes a pop-up on a click outside it or on Escape.
+function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (ev: PointerEvent) => !ref.current?.contains(ev.target as Node) && close();
+    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && close();
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  });
+}
+
+// Up/Down move between the options of an open list.
+const arrowKeys = (ev: ReactKeyboardEvent<HTMLElement>) => {
+  if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+  ev.preventDefault();
+  const opts = [...ev.currentTarget.querySelectorAll<HTMLElement>('[role=option]')];
+  const i = opts.indexOf(document.activeElement as HTMLElement);
+  opts[(i + (ev.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length]?.focus();
+};
+
+// The font picker: the current font's name in its own typeface, and a list of fonts, each shown in itself.
+function FontPicker({ editor, font }: { editor: Editor; font: string }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useDismiss(box, open, () => setOpen(false));
+  const current = FONTS.find((f) => f.value === font) ?? FONTS[0];
+  const pick = (value: string) => {
+    setOpen(false);
+    formatChain(editor, (c) => (value ? c.setFontFamily(value) : c.unsetFontFamily()));
+  };
+  return (
+    <div ref={box} className="relative" onKeyDown={open ? arrowKeys : undefined}>
+      <button
+        type="button"
+        aria-label={`Font: ${current.label}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={`${ctrlBox} flex w-[156px] items-center justify-between gap-2 pr-2.5 pl-3 text-[15px] ${open ? on : ''}`}
+      >
+        <span className="truncate" style={{ fontFamily: fontCss(current.value) }}>{current.label}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`flex-none transition-transform ${open ? 'rotate-180' : ''}`}>
+          <path d="M5 9 L12 16 L19 9" stroke="#2A2520" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Fonts" className={`${popover} w-[200px]`}>
+          {FONTS.map((f) => (
+            <button key={f.label} type="button" role="option" aria-selected={f.value === current.value} onClick={() => pick(f.value)} style={{ fontFamily: fontCss(f.value) }} className={`${optionRow(f.value === current.value)} text-[17px]`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // The size at the caret: the one set on the text, else what the page renders there (16 for body text, 32 in a heading).
 function sizeAt(e: Editor) {
@@ -125,24 +206,9 @@ function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: 
   };
   return (
     <div className="sticky top-0 z-[5] flex flex-wrap items-center justify-between gap-2.5 rounded-t-[14px_10px] border-b-[1.5px] border-dashed border-ink/35 bg-paper/95 px-7 py-3">
-      {/* Keep the caret in the editor when a toolbar button is pressed (the font picker and size box still take focus). */}
-      <div role="toolbar" aria-label="Formatting" onMouseDown={(e) => !(e.target as HTMLElement).closest('select, input') && e.preventDefault()} className="flex flex-wrap gap-2">
-        <select
-          aria-label="Font"
-          value={FONTS.some((f) => f.value === s.font) ? s.font : ''}
-          onChange={(e) => {
-            const chain = editor.chain().focus();
-            (e.target.value ? chain.setFontFamily(e.target.value) : chain.unsetFontFamily()).run();
-          }}
-          style={{ fontFamily: s.font || undefined }}
-          className={`${ctrlBox} w-[150px] px-2 text-[15px] ${s.font ? '' : 'font-sans'}`}
-        >
-          {FONTS.map((f) => (
-            <option key={f.label} value={f.value} style={{ fontFamily: f.value || 'Inter, sans-serif' }}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+      {/* Keep the caret (and the selection) in the editor when a toolbar button is pressed. The size box still takes focus. */}
+      <div role="toolbar" aria-label="Formatting" onMouseDown={(e) => !(e.target as HTMLElement).closest('input') && e.preventDefault()} className="flex flex-wrap gap-2">
+        <FontPicker editor={editor} font={s.font} />
         <FontSizeControl editor={editor} size={s.size} />
         <button type="button" aria-label="Bold" aria-pressed={s.bold} onClick={() => editor.chain().focus().toggleBold().run()} className={`${toolBtn} font-sans text-[17px] font-medium ${s.bold ? on : ''}`}>B</button>
         <button type="button" aria-label="Italic" aria-pressed={s.italic} onClick={() => editor.chain().focus().toggleItalic().run()} className={`${toolBtn} font-sans text-[17px] italic ${s.italic ? on : ''}`}>I</button>
