@@ -36,7 +36,7 @@ const fontCss = (value: string) => value || 'Inter, sans-serif';
 const SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 30, 36, 48, 60, 72, 96];
 const ctrlBox = 'h-11 rounded-[9px] border-[1.5px] border-ink/55 bg-transparent text-ink';
 // The pop-up lists: same card look as the week dropdown.
-const popover = 'absolute top-[50px] left-0 z-20 rounded-card bg-card p-1.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]';
+const popover = 'absolute top-[50px] z-20 rounded-card bg-card p-1.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]';
 const optionRow = (on: boolean) => `block w-full rounded-chip border-0 px-3 py-1.5 text-left text-ink ${on ? 'bg-highlighter' : 'bg-transparent hover:bg-highlighter/45'}`;
 
 // A chain that formats the selection, or, with just a caret in (or at the edge of) a word, that whole word, the way
@@ -105,7 +105,7 @@ function FontPicker({ editor, font }: { editor: Editor; font: string }) {
         </svg>
       </button>
       {open && (
-        <div role="listbox" aria-label="Fonts" className={`${popover} w-[200px]`}>
+        <div role="listbox" aria-label="Fonts" className={`${popover} left-0 w-[200px]`}>
           {FONTS.map((f) => (
             <button key={f.label} type="button" role="option" aria-selected={f.value === current.value} onClick={() => pick(f.value)} style={{ fontFamily: fontCss(f.value) }} className={`${optionRow(f.value === current.value)} text-[17px]`}>
               {f.label}
@@ -118,61 +118,60 @@ function FontPicker({ editor, font }: { editor: Editor; font: string }) {
 }
 
 // The size at the caret: the one set on the text, else what the page renders there (16 for body text, 32 in a heading).
+// NaN when it can't be measured (e.g. while the editor is still mounting); the size box covers that.
 function sizeAt(e: Editor) {
   const set = e.getAttributes('textStyle').fontSize as string | undefined;
   if (set) return parseFloat(set);
   const { node } = e.view.domAtPos(e.state.selection.from);
   const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as HTMLElement);
-  return el ? Math.round(parseFloat(getComputedStyle(el).fontSize)) : 16;
+  return el ? Math.round(parseFloat(getComputedStyle(el).fontSize)) : NaN;
 }
 
-// Google Docs style: − [size] +, and the box opens a list of common sizes. Type any size from 1 to 400 and press Enter.
+// One pill: − [size] +. Clicking the number lists common sizes; or type one (1 to 400) and press Enter.
 function FontSizeControl({ editor, size }: { editor: Editor; size: number }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const pill = useRef<HTMLDivElement>(null);
+  useDismiss(pill, open, () => setOpen(false));
+  // When the size can't be read, show the last one seen or set, else the default.
+  const last = useRef(16);
+  if (Number.isFinite(size)) last.current = size;
+  const shown = last.current;
   const apply = (n: number) => {
     setDraft(null);
     setOpen(false);
     if (!Number.isFinite(n)) return void editor.commands.focus();
-    editor.chain().focus().setFontSize(`${Math.min(400, Math.max(1, Math.round(n)))}px`).run();
+    const v = Math.min(400, Math.max(1, Math.round(n)));
+    last.current = v;
+    formatChain(editor, (c) => c.setFontSize(`${v}px`));
   };
-  const step = `${ctrlBox} w-9 font-sans text-[18px] leading-none`;
+  const step = 'flex h-full w-8 items-center justify-center rounded-[7px] border-0 bg-transparent p-0 font-sans text-[18px] leading-none text-ink hover:bg-highlighter/45';
   return (
-    <div className="relative flex items-center gap-1">
-      <button type="button" aria-label="Smaller text" onClick={() => apply(size - 1)} className={step}>−</button>
-      <input
-        aria-label="Font size"
-        inputMode="numeric"
-        value={draft ?? String(size)}
-        onFocus={(e) => {
-          e.currentTarget.select();
-          setOpen(true);
-        }}
-        onBlur={() => {
-          setDraft(null);
-          setOpen(false);
-        }}
-        onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') apply(draft === null ? size : parseInt(draft, 10));
-          if (e.key === 'Escape') apply(NaN);
-        }}
-        className={`${ctrlBox} w-12 text-center font-sans text-[15px]`}
-      />
-      <button type="button" aria-label="Bigger text" onClick={() => apply(size + 1)} className={step}>+</button>
+    <div ref={pill} className="relative" onKeyDown={open ? arrowKeys : undefined}>
+      <div className={`${ctrlBox} flex items-center p-[3px] focus-within:border-ink ${open ? 'border-ink' : ''}`}>
+        <button type="button" aria-label="Smaller text" title="smaller" onClick={() => apply(shown - 1)} className={step}>−</button>
+        <input
+          aria-label="Font size"
+          inputMode="numeric"
+          value={draft ?? String(shown)}
+          onFocus={(e) => {
+            e.currentTarget.select();
+            setOpen(true);
+          }}
+          onBlur={() => setDraft(null)}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') apply(draft ? parseInt(draft, 10) : shown);
+            if (e.key === 'Escape') apply(NaN);
+          }}
+          className="h-full w-9 rounded-[6px] border-0 bg-transparent p-0 text-center font-sans text-[15px] text-ink focus-visible:outline-none"
+        />
+        <button type="button" aria-label="Bigger text" title="bigger" onClick={() => apply(shown + 1)} className={step}>+</button>
+      </div>
       {open && (
-        <div role="listbox" aria-label="Font sizes" className="absolute top-12 left-10 z-20 max-h-72 w-16 overflow-y-auto rounded-[9px] bg-paper py-1 shadow-[0_0_0_1.5px_#2A2520,3px_4px_0_rgba(42,37,32,0.15)]">
+        <div role="listbox" aria-label="Font sizes" className={`${popover} left-1/2 max-h-72 w-[76px] -translate-x-1/2 overflow-y-auto`}>
           {SIZES.map((n) => (
-            <button
-              key={n}
-              type="button"
-              role="option"
-              aria-selected={n === size}
-              // keep focus in the box until the size is applied
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => apply(n)}
-              className={`block w-full border-0 px-3 py-1 text-left font-sans text-[15px] text-ink hover:bg-highlighter/60 ${n === size ? 'bg-highlighter' : 'bg-transparent'}`}
-            >
+            <button key={n} type="button" role="option" aria-selected={n === shown} onClick={() => apply(n)} className={`${optionRow(n === shown)} text-center font-sans text-[15px]`}>
               {n}
             </button>
           ))}
