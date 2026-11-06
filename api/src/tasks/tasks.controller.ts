@@ -70,10 +70,10 @@ export class TasksController {
     if (dto.title !== undefined && dto.done === undefined) {
       task.title = dto.title;
     } else if (dto.done === true && dto.title === undefined) {
-      if (!dto.weekId) throw new BadRequestException('weekId is required to tick a task');
+      if (!dto.weekId) throw new BadRequestException('weekId is required to check a task');
       const [week, created] = await Promise.all([ownedWeek(this.ds, user.id, dto.weekId), ownedWeek(this.ds, user.id, task.createdWeekId)]);
       if (!week) throw new NotFoundException();
-      if (week.number < created!.number) throw new BadRequestException('Cannot tick a task before the week it was created');
+      if (week.number < created!.number) throw new BadRequestException('Cannot check a task before the week it was created');
       task.doneWeekId = week.id;
     } else if (dto.done === false && dto.title === undefined) {
       task.doneWeekId = null;

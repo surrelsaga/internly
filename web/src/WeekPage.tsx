@@ -383,7 +383,7 @@ export default function WeekPage({ internship, week, lock }: { internship: Inter
           <span className="font-hand text-[23px]">{longRange(week)}</span>
           <span className="font-hand text-[17px] text-ink-soft">{day ? `${internship.company}, day ${day} of 5` : internship.company}</span>
         </div>
-        <span className="rounded-tab bg-highlighter px-4 py-1 font-hand text-[19px]">{tasks.filter((t) => t.done).length} of {tasks.length} ticked</span>
+        <span className="rounded-tab bg-highlighter px-4 py-1 font-hand text-[19px]">{tasks.filter((t) => t.done).length} of {tasks.length} checked</span>
       </section>
 
       {locked && (

@@ -19,7 +19,7 @@ describe('weeklyEmail', () => {
     const m = weeklyEmail(w2, ['Done in week 2'], 'https://app.test');
     expect(m.text).toContain('Done in week 2');
     expect(m.text).not.toContain('Done in week 1');
-    expect(weeklyEmail(w2, [], 'https://app.test').text).toContain('Nothing ticked off');
+    expect(weeklyEmail(w2, [], 'https://app.test').text).toContain('Nothing checked off');
   });
 });
 

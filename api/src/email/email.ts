@@ -18,8 +18,8 @@ export function weeklyEmail(week: WeekLike, done: string[], appUrl: string) {
   const dates = `${shortDay(week.startDate)} – ${shortDay(week.endDate)}`;
   const link = `${appUrl}/weeks/${week.id}?tab=reflection`;
   const subject = `Week ${week.number} (${dates}): time to reflect`;
-  const intro = `Week ${week.number}, ${dates}. Here is what you ticked off:`;
-  const none = 'Nothing ticked off this week.';
+  const intro = `Week ${week.number}, ${dates}. Here is what you checked off:`;
+  const none = 'Nothing checked off this week.';
   const text = [intro, '', ...(done.length ? done.map((t) => `- ${t}`) : [none]), '', `Write your reflection: ${link}`].join('\n');
   const html =
     `<p>${intro}</p>` +

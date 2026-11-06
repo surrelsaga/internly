@@ -100,7 +100,7 @@ export default function TasksRail({ week, tasks }: { week: Week; tasks: WeekTask
         <h2 id="tasks-title" className="mb-1 font-caveat text-[42px] leading-none font-bold">
           <Marker>tasks</Marker>
         </h2>
-        <p className="mt-1.5 mb-3 font-hand text-base text-ink-soft">Unticked ones move to next week.</p>
+        <p className="mt-1.5 mb-3 font-hand text-base text-ink-soft">Unchecked ones move to next week.</p>
         {tasks.map((t) => (
           <TaskRow key={t.id} task={t} onToggle={() => toggle.mutate(t)} onRename={(v) => rename.mutate({ id: t.id, title: v })} onDelete={() => remove.mutate(t.id)} />
         ))}
