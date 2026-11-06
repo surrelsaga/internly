@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -9,10 +10,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsObject, IsString, IsUUID, MaxLength, Min, ValidateIf } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsObject, IsString, IsUUID, MaxLength, Min, ValidateIf } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { CurrentUser } from '../auth/current-user.js';
 import { Internship, Week } from '../internship/internship.entity.js';
@@ -60,6 +62,12 @@ class SectionDto {
   name: string;
 }
 
+class OrderDto {
+  @IsArray()
+  @IsUUID('all', { each: true })
+  ids: string[];
+}
+
 // A uuid that matches nothing is a 404, not a 400.
 const uuid = new ParseUUIDPipe({ errorHttpStatusCode: 404 });
 
@@ -102,6 +110,21 @@ export class NotesController {
     const position = await nextPosition(this.ds, Section, { internshipId: internship.id });
     const s = await this.ds.getRepository(Section).save({ internshipId: internship.id, name: dto.name, position });
     return { id: s.id, name: s.name, position: s.position };
+  }
+
+  // The tabs in their new order. Must list every one of the user's tabs exactly once.
+  @Put('sections/order')
+  async reorderSections(@CurrentUser() user: User, @Body() dto: OrderDto) {
+    const internship = await this.ds.getRepository(Internship).findOneBy({ userId: user.id });
+    if (!internship) throw new NotFoundException();
+    const mine = new Set((await this.ds.getRepository(Section).findBy({ internshipId: internship.id })).map((s) => s.id));
+    if (dto.ids.length !== mine.size || new Set(dto.ids).size !== mine.size || !dto.ids.every((id) => mine.has(id))) {
+      throw new BadRequestException('Send every tab id exactly once');
+    }
+    await this.ds.transaction(async (m) => {
+      for (const [position, id] of dto.ids.entries()) await m.update(Section, id, { position });
+    });
+    return dto.ids.map((id, position) => ({ id, position }));
   }
 
   @Patch('sections/:id')

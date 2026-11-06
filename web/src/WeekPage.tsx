@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, dayOfWeek, go, longRange, nowWeek, shortDay, type Internship, type ReflectionData, type Section, type Week, type WeekDetail } from './api';
 import NotesPanel from './NotesPanel';
@@ -11,13 +11,17 @@ type Tab = string;
 const REFLECTION = 'reflection';
 const tabClass = (on: boolean) => `min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent'}`;
 
-// The user's note tabs, then reflection, then "+ new tab". Click the open tab (or double-click any) to rename it.
+// The user's note tabs, then reflection, then "+ new tab". Click the open tab (or double-click any) to rename it,
+// × to delete it, drag to reorder.
 function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setTab: (t: Tab) => void }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<{ id: string; draft: string } | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const cancelled = useRef(false);
+  // The tab being dragged, and the order before the drag (to detect a change and to undo a failed save).
+  const drag = useRef<{ id: string; before: Section[] } | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   const setSections = (f: (s: Section[]) => Section[]) => qc.setQueryData<Internship>(['internship'], (d) => d && { ...d, sections: f(d.sections) });
   const rename = (s: Section) => {
     cancelled.current = false;
@@ -57,8 +61,6 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
 
   // An empty tab goes straight away. One with notes in any week asks first, since they go with it.
   const remove = async (s: Section) => {
-    cancelled.current = true;
-    setEditing(null);
     setError('');
     const failed = () => setError('could not delete the tab, try again');
     try {
@@ -77,49 +79,102 @@ function TabBar({ sections, tab, setTab }: { sections: Section[]; tab: Tab; setT
     if (tab === s.id) setTab(rest[0]?.id ?? REFLECTION);
   };
 
-  // Keeps focus in the input, so blur doesn't save before delete runs.
-  const keepFocus = (e: { preventDefault(): void }) => e.preventDefault();
+  // Moves the dragged tab into the hovered tab's place once the pointer passes its middle, so wide tabs don't flicker back and forth.
+  const dragOver = (e: DragEvent, over: Section) => {
+    const d = drag.current;
+    if (!d || over.id === d.id) return;
+    const from = sections.findIndex((x) => x.id === d.id);
+    const to = sections.findIndex((x) => x.id === over.id);
+    const r = e.currentTarget.getBoundingClientRect();
+    if (from < to ? e.clientX < r.left + r.width / 2 : e.clientX > r.left + r.width / 2) return;
+    const next = [...sections];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    setSections(() => next);
+  };
+
+  // Dropped outside the tab bar (or Escape) puts it back; otherwise the new order is saved.
+  const dragEnd = async (e: DragEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    setDragging(null);
+    if (!d) return;
+    if (e.dataTransfer.dropEffect === 'none') return setSections(() => d.before);
+    const ids = sections.map((x) => x.id);
+    if (ids.join() === d.before.map((x) => x.id).join()) return;
+    try {
+      await api('/sections/order', { ids }, 'PUT');
+    } catch {
+      setSections(() => d.before);
+      setError('could not move the tab, try again');
+    }
+  };
 
   return (
-    <div role="tablist" aria-label="Sections" className="mt-[26px] mb-[22px] flex flex-wrap items-center gap-2.5">
+    <div
+      role="tablist"
+      aria-label="Sections"
+      // the whole bar is a drop zone, so letting go between tabs keeps the new order
+      onDragOver={(e) => drag.current && e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+      className="mt-[26px] mb-[22px] flex flex-wrap items-center gap-2.5"
+    >
       {sections.map((s) =>
         editing?.id === s.id ? (
-          <span key={s.id} className="flex items-center gap-2">
-            <input
-              aria-label="Tab name"
-              autoFocus
-              onFocus={(e) => e.currentTarget.select()}
-              value={editing.draft}
-              maxLength={40}
-              onChange={(e) => setEditing({ id: s.id, draft: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-                if (e.key === 'Escape') {
-                  cancelled.current = true;
-                  e.currentTarget.blur();
-                }
-              }}
-              onBlur={() => void save()}
-              size={Math.max(6, editing.draft.length + 1)}
-              className={`${tabClass(true)} outline-2 outline-ink`}
-            />
-            <button type="button" onPointerDown={keepFocus} onMouseDown={keepFocus} onClick={() => void remove(s)} className={`min-h-11 rounded-full px-4 text-[17px] ${dashedBtn}`}>
-              delete tab
+          <input
+            key={s.id}
+            aria-label="Tab name"
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            value={editing.draft}
+            maxLength={40}
+            onChange={(e) => setEditing({ id: s.id, draft: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+              if (e.key === 'Escape') {
+                cancelled.current = true;
+                e.currentTarget.blur();
+              }
+            }}
+            onBlur={() => void save()}
+            size={Math.max(6, editing.draft.length + 1)}
+            className={`${tabClass(true)} outline-2 outline-ink`}
+          />
+        ) : (
+          <span
+            key={s.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', s.name); // Firefox won't start a drag without data
+              e.dataTransfer.effectAllowed = 'move';
+              drag.current = { id: s.id, before: sections };
+              setDragging(s.id);
+            }}
+            onDragOver={(e) => dragOver(e, s)}
+            onDragEnd={(e) => void dragEnd(e)}
+            className={`group relative ${dragging === s.id ? 'opacity-40' : ''}`}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === s.id}
+              title={tab === s.id ? 'click to rename, drag to move' : 'double-click to rename, drag to move'}
+              onClick={() => (tab === s.id ? rename(s) : setTab(s.id))}
+              onDoubleClick={() => rename(s)}
+              className={`${tabClass(tab === s.id)} cursor-grab active:cursor-grabbing`}
+            >
+              {s.name}
+            </button>
+            {/* Always on the open tab (so phones can reach it); on hover or focus for the rest. */}
+            <button
+              type="button"
+              aria-label={`Delete tab “${s.name}”`}
+              title="delete tab"
+              onClick={() => void remove(s)}
+              className={`absolute -top-2 -right-2 size-6 items-center justify-center rounded-full border-0 bg-paper p-0 font-sans text-[15px] leading-none text-ink shadow-[0_0_0_1.5px_#2A2520] hover:bg-redpen hover:text-paper ${tab === s.id ? 'flex' : 'hidden group-focus-within:flex group-hover:flex'}`}
+            >
+              ×
             </button>
           </span>
-        ) : (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === s.id}
-            title={tab === s.id ? 'click to rename' : 'double-click to rename'}
-            onClick={() => (tab === s.id ? rename(s) : setTab(s.id))}
-            onDoubleClick={() => rename(s)}
-            className={tabClass(tab === s.id)}
-          >
-            {s.name}
-          </button>
         ),
       )}
       <button type="button" role="tab" aria-selected={tab === REFLECTION} onClick={() => setTab(REFLECTION)} className={tabClass(tab === REFLECTION)}>
