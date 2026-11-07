@@ -1,0 +1,15 @@
+name: Ping Server
+
+on:
+  schedule:
+    # Runs every 14 minutes
+    - cron: '*/14 * * * *'
+  workflow_dispatch: 
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Login Endpoint
+        run: |
+          curl -I https://internly-dev.onrender.com/login
