@@ -9,8 +9,8 @@ import { api, ApiError, uploadImage, type Note, type Section, type WeekDetail } 
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import { dashedBtn, Wobble } from './ui';
 
-const toolBtn = 'flex size-11 items-center justify-center rounded-[9px] border-[1.5px] border-ink/55 bg-transparent p-0 text-ink';
-const on = 'bg-highlighter';
+// Yellow while active (bold at the caret, list on, ...): driven by aria-pressed, which also outranks bg-transparent.
+const toolBtn = 'flex size-11 items-center justify-center rounded-[9px] border-[1.5px] border-ink/55 bg-transparent p-0 text-ink aria-pressed:border-ink aria-pressed:bg-highlighter';
 
 type Status = 'idle' | 'saving' | 'saved' | 'error' | 'uploading' | 'uploadError';
 const statusText: Record<Status, string> = {
@@ -84,7 +84,7 @@ function FontPicker({ editor, font }: { editor: Editor; font: string }) {
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={`${ctrlBox} flex w-[156px] items-center justify-between gap-2 pr-2.5 pl-3 text-[15px] ${open ? on : ''}`}
+        className={`${ctrlBox} flex w-[156px] items-center justify-between gap-2 pr-2.5 pl-3 text-[15px] aria-expanded:bg-highlighter`}
       >
         <span className="truncate" style={{ fontFamily: fontCss(current.value) }}>{current.label}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`flex-none transition-transform ${open ? 'rotate-180' : ''}`}>
@@ -237,9 +237,9 @@ function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: 
       <div role="toolbar" aria-label="Formatting" onMouseDown={(e) => !(e.target as HTMLElement).closest('input') && e.preventDefault()} className="flex flex-wrap gap-2">
         <FontPicker editor={editor} font={s.font} />
         <FontSizeControl editor={editor} size={s.size} />
-        <button type="button" aria-label="Bold" aria-pressed={s.bold} onClick={() => editor.chain().focus().toggleBold().run()} className={`${toolBtn} font-sans text-[17px] font-medium ${s.bold ? on : ''}`}>B</button>
-        <button type="button" aria-label="Italic" aria-pressed={s.italic} onClick={() => editor.chain().focus().toggleItalic().run()} className={`${toolBtn} font-sans text-[17px] italic ${s.italic ? on : ''}`}>I</button>
-        <button type="button" aria-label="Add link" aria-pressed={s.link} onClick={link} className={`${toolBtn} ${s.link ? on : ''}`}>
+        <button type="button" aria-label="Bold" aria-pressed={s.bold} onClick={() => editor.chain().focus().toggleBold().run()} className={`${toolBtn} font-sans text-[17px] font-medium`}>B</button>
+        <button type="button" aria-label="Italic" aria-pressed={s.italic} onClick={() => editor.chain().focus().toggleItalic().run()} className={`${toolBtn} font-sans text-[17px] italic`}>I</button>
+        <button type="button" aria-label="Add link" aria-pressed={s.link} onClick={link} className={toolBtn}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M10 14 a4 4 0 0 0 5.7 0 l3-3 a4 4 0 0 0 -5.7 -5.7 l-1 1 M14 10 a4 4 0 0 0 -5.7 0 l-3 3 a4 4 0 0 0 5.7 5.7 l1 -1" stroke="#2A2520" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -263,7 +263,7 @@ function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: 
             if (f) onImage(f);
           }}
         />
-        <button type="button" aria-label="Bulleted list" aria-pressed={s.list} onClick={() => editor.chain().focus().toggleBulletList().run()} className={`${toolBtn} ${s.list ? on : ''}`}>
+        <button type="button" aria-label="Bulleted list" aria-pressed={s.list} onClick={() => editor.chain().focus().toggleBulletList().run()} className={toolBtn}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="5" cy="7" r="1.3" fill="#2A2520" />
             <circle cx="5" cy="12" r="1.3" fill="#2A2520" />
