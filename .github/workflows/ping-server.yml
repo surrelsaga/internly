@@ -2,8 +2,8 @@ name: Ping Server
 
 on:
   schedule:
-    # Runs every 14 minutes
-    - cron: '*/14 * * * *'
+    # Runs every 10 minutes (Render free tier sleeps after 15 min idle)
+    - cron: '*/10 * * * *'
   workflow_dispatch: 
 
 jobs:
