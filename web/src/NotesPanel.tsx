@@ -4,6 +4,8 @@ import { EditorContent, Extension, useEditor, useEditorState } from '@tiptap/rea
 import type { Editor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style';
+import { Mark } from '@tiptap/pm/model';
+import { Plugin } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { api, ApiError, uploadImage, type Note, type Section, type WeekDetail } from './api';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
@@ -173,6 +175,29 @@ function FontSizeControl({ editor, size }: { editor: Editor; size: number }) {
 // Tab indents instead of jumping to the next field. In a bullet list it nests the item; elsewhere it inserts a tab at
 // the caret, or at the start of every selected line (so a selection is never replaced). Shift+Tab undoes one level, and
 // when there's nothing to undo it moves focus out as usual, so the keyboard can still leave the editor.
+// By default the caret takes the formatting of the character on its left, so clicking just before a bold word shows
+// B off (and types plain). When the caret is moved (click, arrows) to the start of a word, it takes that word's
+// formatting instead, so the toolbar matches the word and typing continues in its style. Never runs while typing,
+// and an explicit B/I/font choice still wins.
+const WordStartMarks = Extension.create({
+  name: 'wordStartMarks',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        appendTransaction: (trs, _old, state) => {
+          if (!trs.some((tr) => tr.selectionSet) || trs.some((tr) => tr.docChanged || tr.storedMarksSet)) return null;
+          const { empty, $from } = state.selection;
+          const after = $from.nodeAfter;
+          if (!empty || !after?.isText || $from.parentOffset === 0) return null; // line start already uses the word
+          if (!/\s/.test(state.doc.textBetween($from.pos - 1, $from.pos, undefined, '\ufffc'))) return null;
+          if (Mark.sameSet(after.marks, $from.marks())) return null;
+          return state.tr.setStoredMarks(after.marks);
+        },
+      }),
+    ];
+  },
+});
+
 const TabIndent = Extension.create({
   name: 'tabIndent',
   addKeyboardShortcuts() {
@@ -329,7 +354,7 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
 
   const editor = useEditor({
     // StarterKit includes Link. Clicking a link while editing shouldn't navigate away.
-    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Image, TextStyle, FontFamily, FontSize, TabIndent],
+    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Image, TextStyle, FontFamily, FontSize, TabIndent, WordStartMarks],
     content: note.content,
     onUpdate: ({ editor: e }) => queue({ content: e.getJSON() }),
     editorProps: {
