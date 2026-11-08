@@ -9,7 +9,8 @@ import { Plugin } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { api, ApiError, uploadImage, type Note, type Section, type WeekDetail } from './api';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
-import { dashedBtn, Wobble } from './ui';
+import { Tabs } from './Tabs';
+import { Wobble } from './ui';
 
 // Yellow while active (bold at the caret, list on, ...): driven by aria-pressed, which also outranks bg-transparent.
 const toolBtn = 'flex size-11 items-center justify-center rounded-[9px] border-[1.5px] border-ink/55 bg-transparent p-0 text-ink aria-pressed:border-ink aria-pressed:bg-highlighter';
@@ -304,12 +305,11 @@ function Toolbar({ editor, status, onImage, refine }: { editor: Editor; status: 
 }
 
 // One open note. Keyed by note id in the parent, so switching notes remounts it.
-function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; onDeleted: () => void }) {
+function NoteEditor({ weekId, note }: { weekId: string; note: Note }) {
   const qc = useQueryClient();
-  const [title, setTitle] = useState(note.title);
   const [status, setStatus] = useState<Status>('idle');
   // What was typed since the last save, and the pending debounce timer.
-  const pending = useRef<{ title?: string; content?: object }>({});
+  const pending = useRef<{ content?: object }>({});
   const timer = useRef<number | undefined>(undefined);
 
   const patchCache = (p: Partial<Note>) =>
@@ -345,7 +345,7 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
     };
   }, []);
 
-  const queue = (p: { title?: string; content?: object }) => {
+  const queue = (p: { content?: object }) => {
     Object.assign(pending.current, p);
     setStatus('saving');
     window.clearTimeout(timer.current);
@@ -377,14 +377,6 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
     } catch {
       setStatus('uploadError');
     }
-  };
-
-  const remove = async () => {
-    if (!window.confirm(`Delete the note “${title || 'untitled'}”?`)) return;
-    window.clearTimeout(timer.current);
-    pending.current = {}; // nothing left to save
-    await api(`/notes/${note.id}`, undefined, 'DELETE');
-    onDeleted();
   };
 
   const refine = useRefine();
@@ -421,20 +413,6 @@ function NoteEditor({ weekId, note, onDeleted }: { weekId: string; note: Note; o
         <RefinePanel suggestion={refine.suggestion} error={refine.error} onAccept={accept} onDiscard={refine.clear} />
       </div>
       <div className="px-11 pt-[30px] font-sans [overflow-wrap:anywhere] text-base leading-[1.75]">
-        <div className="mb-[18px] flex flex-wrap items-start justify-between gap-3">
-          <input
-            aria-label="Note title"
-            value={title}
-            maxLength={200}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              patchCache({ title: e.target.value });
-              queue({ title: e.target.value });
-            }}
-            className="min-w-0 flex-[1_1_280px] border-0 bg-transparent p-0 font-caveat text-[48px] leading-[1.05] font-bold text-ink"
-          />
-          <button type="button" onClick={remove} className={`min-h-11 rounded-full px-4 text-[17px] ${dashedBtn}`}>delete note</button>
-        </div>
         <EditorContent editor={editor} />
       </div>
     </article>
@@ -445,46 +423,50 @@ export default function NotesPanel({ weekId, section, notes, activeId, setActive
   const qc = useQueryClient();
   const list = notes.filter((n) => n.sectionId === section.id);
   const note = list.find((n) => n.id === activeId) ?? list[0];
-  const [failed, setFailed] = useState(false);
-
-  const add = async () => {
-    setFailed(false);
-    try {
-      const created = await api<Note>(`/weeks/${weekId}/notes`, { sectionId: section.id, title: 'untitled' });
-      qc.setQueryData<WeekDetail>(['week', weekId], (d) => d && { ...d, notes: [...d.notes, created] });
-      setActiveId(created.id);
-    } catch {
-      setFailed(true);
-    }
-  };
+  const setNotes = (f: (n: Note[]) => Note[]) => qc.setQueryData<WeekDetail>(['week', weekId], (d) => d && { ...d, notes: f(d.notes) });
+  const titled = (id: string, title: string) => setNotes((ns) => ns.map((n) => (n.id === id ? { ...n, title } : n)));
+  // This section's notes in this order (positions become indexes); other sections' notes keep theirs.
+  const setOrder = (ids: string[]) => setNotes((ns) => ns.map((n) => (ids.includes(n.id) ? { ...n, position: ids.indexOf(n.id) } : n)).sort((a, b) => a.position - b.position));
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        {list.map((n) => {
-          const sel = n.id === note?.id;
-          return (
-            <button
-              key={n.id}
-              type="button"
-              aria-pressed={sel}
-              onClick={() => setActiveId(n.id)}
-              className={`min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${sel ? 'bg-highlighter' : 'swipe bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`}
-            >
-              {n.title || 'untitled'}
-            </button>
-          );
-        })}
-        <button type="button" onClick={add} className={`min-h-11 rounded-full px-4 text-[19px] ${dashedBtn}`}>+ new note</button>
-        {failed && <span role="alert" className="font-hand text-[17px] text-redpen">could not create the note, try again</span>}
-      </div>
+      <Tabs
+        label="Notes"
+        noun="note"
+        className="mb-4"
+        tabClass={(on) => `min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`}
+        addClass="min-h-11 rounded-full px-4 text-[19px]"
+        maxLength={200}
+        items={list.map((n) => ({ id: n.id, name: n.title || 'untitled' }))}
+        active={note?.id}
+        onSelect={setActiveId}
+        onAdd={async () => {
+          const created = await api<Note>(`/weeks/${weekId}/notes`, { sectionId: section.id, title: 'untitled' });
+          setNotes((ns) => [...ns, created]);
+          setActiveId(created.id);
+          return { id: created.id, name: created.title };
+        }}
+        onRename={async (n, title) => {
+          titled(n.id, title);
+          try {
+            await api(`/notes/${n.id}`, { title }, 'PATCH');
+          } catch (e) {
+            titled(n.id, n.name);
+            throw e;
+          }
+        }}
+        onDelete={async (n) => {
+          if (!window.confirm(`Delete the note “${n.name}”?`)) return;
+          await api(`/notes/${n.id}`, undefined, 'DELETE');
+          setNotes((ns) => ns.filter((x) => x.id !== n.id));
+          if (note?.id === n.id) setActiveId(list.find((x) => x.id !== n.id)?.id ?? '');
+        }}
+        setOrder={setOrder}
+        // ponytail: one PATCH per note in the section, no bulk endpoint; a section holds a handful of notes.
+        saveOrder={async (ids) => void (await Promise.all(ids.map((id, position) => api(`/notes/${id}`, { position }, 'PATCH'))))}
+      />
       {note ? (
-        <NoteEditor
-          key={note.id}
-          weekId={weekId}
-          note={note}
-          onDeleted={() => qc.setQueryData<WeekDetail>(['week', weekId], (d) => d && { ...d, notes: d.notes.filter((n) => n.id !== note.id) })}
-        />
+        <NoteEditor key={note.id} weekId={weekId} note={note} />
       ) : (
         <p className="font-hand text-[20px] text-ink-mute">No notes in “{section.name}” this week yet.</p>
       )}
