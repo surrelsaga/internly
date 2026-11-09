@@ -61,9 +61,10 @@ describe('weekly email (e2e)', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.resend.com/emails');
     const [mail] = sentBodies();
     expect(mail.to).toBe(process.env.ALLOWED_EMAILS!.split(',')[0].trim().toLowerCase());
-    expect(mail.text).toContain('ticked in week 1');
-    expect(mail.text).not.toContain('ticked in week 2');
-    expect(mail.text).not.toContain('still open');
+    expect(mail.subject).toBe('Week 1 at Speedback: time to write your reflection');
+    expect(mail.text).toContain('Checked off:\n- ticked in week 1\n');
+    // open during week 1 (one gets checked later): both under "still open"
+    expect(mail.text).toContain('carry over to next week):\n- ticked in week 2\n- still open\n');
     expect(mail.text).not.toContain('deleted after checking');
     expect(mail.text).toContain(`/weeks/${weeks[0].id}?tab=reflection`);
     expect((await ds.getRepository(Internship).findOneByOrFail({ id: internship.id })).lastEmailedWeekId).toBe(weeks[0].id);
@@ -76,7 +77,7 @@ describe('weekly email (e2e)', () => {
     // the next Friday sends week 2
     await emailer.sendDue(new Date('2026-10-16T10:00:00Z'));
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(sentBodies()[1].text).toContain('ticked in week 2');
+    expect(sentBodies()[1].text).toContain('Checked off:\n- ticked in week 2\n');
   });
 
   it('a failed send is not marked as sent, so the next run retries', async () => {

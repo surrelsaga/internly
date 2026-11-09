@@ -4,22 +4,43 @@ const w1 = { id: 'w1', number: 1, startDate: '2026-10-05', endDate: '2026-10-11'
 const w2 = { id: 'w2', number: 2, startDate: '2026-10-12', endDate: '2026-10-18' };
 
 describe('weeklyEmail', () => {
-  it('has the week, its dates, the ticked tasks and the reflection link', () => {
-    const m = weeklyEmail(w1, ['Ship login', 'Fix <b>bug</b>'], 'https://app.test');
-    expect(m.subject).toContain('Week 1');
-    for (const part of [m.subject, m.text, m.html]) expect(part).toMatch(/5 Oct/);
-    expect(m.text).toContain('- Ship login');
-    expect(m.text).toContain('https://app.test/weeks/w1?tab=reflection');
-    expect(m.html).toContain('href="https://app.test/weeks/w1?tab=reflection"');
-    expect(m.html).toContain('Fix &lt;b&gt;bug&lt;/b&gt;');
+  const base = { name: 'Daniel Nguyen', company: 'Speedback', appUrl: 'https://app.test' };
+  const tasks = [
+    { title: 'Ship login', done: true, fromWeek: null },
+    { title: 'Fix <b>bug</b>', done: true, fromWeek: null },
+    { title: 'Read docs', done: false, fromWeek: null },
+    { title: 'Flaky test', done: false, fromWeek: 1 },
+  ];
+
+  it('greets, asks for the reflection, lists checked and open tasks, and signs off', () => {
+    const m = weeklyEmail({ ...base, week: w2, tasks });
+    expect(m.subject).toBe('Week 2 at Speedback: time to write your reflection');
+    expect(m.text).toMatch(/^Hi Daniel,/);
+    expect(m.text).toContain('complete your reflection for Week 2');
+    expect(m.text).toContain('12 Oct – 18 Oct');
+    expect(m.text).toContain('2 of 4 tasks checked off');
+    expect(m.text).toContain('Checked off:\n- Ship login\n- Fix <b>bug</b>');
+    expect(m.text).toContain('Still open (these carry over to next week):\n- Read docs\n- Flaky test (from week 1)');
+    expect(m.text).toContain('- What I learnt (required)');
+    expect(m.text).toContain('https://app.test/weeks/w2?tab=reflection');
+    expect(m.text).toMatch(/Best regards,\nIntern Log$/);
+    expect(m.html).toContain('href="https://app.test/weeks/w2?tab=reflection"');
+    expect(m.html).toContain('<li>Fix &lt;b&gt;bug&lt;/b&gt;</li>');
+    expect(m.html).toContain('Best regards,<br>Intern Log');
   });
 
-  it('lists only the titles it is given', () => {
-    // the caller passes tasks ticked in this week only; open or other-week tasks never reach the template
-    const m = weeklyEmail(w2, ['Done in week 2'], 'https://app.test');
-    expect(m.text).toContain('Done in week 2');
-    expect(m.text).not.toContain('Done in week 1');
-    expect(weeklyEmail(w2, [], 'https://app.test').text).toContain('Nothing checked off');
+  it('says so when a list is empty', () => {
+    const m = weeklyEmail({ ...base, week: w1, tasks: [] });
+    expect(m.text).toContain('Nothing checked off this week.');
+    expect(m.text).toContain('Nothing left open, nice work.');
+    expect(m.text).toContain('0 of 0 tasks');
+  });
+
+  it('escapes the name and company in the html', () => {
+    const m = weeklyEmail({ ...base, name: '<Dan>', company: 'A&B', week: w1, tasks });
+    expect(m.html).toContain('Hi &lt;Dan&gt;,');
+    expect(m.html).toContain('A&amp;B');
+    expect(m.html).not.toContain('<Dan>');
   });
 });
 
