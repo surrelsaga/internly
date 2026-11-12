@@ -23,18 +23,21 @@ export function ownedTask(ds: DataSource, userId: string, id: string, withDelete
     .getOne();
 }
 
+// Task rows keyed by week number, for tasksForWeek.
+export function taskRows(weeks: Pick<Week, 'id' | 'number'>[], tasks: Task[]) {
+  const numberOf = new Map(weeks.map((w) => [w.id, w.number]));
+  return tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    createdWeek: numberOf.get(t.createdWeekId)!,
+    doneWeek: t.doneWeekId ? numberOf.get(t.doneWeekId)! : null,
+  }));
+}
+
+export const internshipTasks = (ds: DataSource, internshipId: string) => ds.getRepository(Task).find({ where: { internshipId }, order: { createdAt: 'ASC' } });
+
 // ponytail: loads all of the internship's tasks and filters in JS. It's one person's list.
 export async function weekTasks(ds: DataSource, week: Week) {
   const weeks = await ds.getRepository(Week).findBy({ internshipId: week.internshipId });
-  const numberOf = new Map(weeks.map((w) => [w.id, w.number]));
-  const tasks = await ds.getRepository(Task).find({ where: { internshipId: week.internshipId }, order: { createdAt: 'ASC' } });
-  return tasksForWeek(
-    tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      createdWeek: numberOf.get(t.createdWeekId)!,
-      doneWeek: t.doneWeekId ? numberOf.get(t.doneWeekId)! : null,
-    })),
-    week.number,
-  );
+  return tasksForWeek(taskRows(weeks, await internshipTasks(ds, week.internshipId)), week.number);
 }

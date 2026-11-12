@@ -30,7 +30,10 @@ function Header() {
           </div>
         </div>
         <div className="flex items-center gap-3.5">
-          <span className="font-hand text-[19px] text-ink-soft">{me.data?.name}</span>
+          {/* hidden on phones so export and sign out fit on one line */}
+          <span className="hidden font-hand text-[19px] text-ink-soft sm:inline">{me.data?.name}</span>
+          {/* A plain navigation: the API answers with an attachment, so the browser saves the file and stays on this page. */}
+          <WobbleButton title="Download everything as one Markdown file" onClick={() => location.assign('/api/export')}>export</WobbleButton>
           <WobbleButton onClick={signOut}>sign out</WobbleButton>
         </div>
       </div>

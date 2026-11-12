@@ -8,6 +8,7 @@ import { AuthController, GoogleStrategy } from './auth/auth.js';
 import { JwtGuard } from './auth/current-user.js';
 import { dataSource } from './data-source.js';
 import { EmailService, WeeklyEmail } from './email/email.js';
+import { ExportController } from './export/export.js';
 import { InternshipController } from './internship/internship.controller.js';
 import { NotesController } from './notes/notes.controller.js';
 import { UploadsController } from './notes/uploads.controller.js';
@@ -17,7 +18,7 @@ import { User } from './users/user.entity.js';
 
 @Module({
   imports: [TypeOrmModule.forRoot(dataSource.options), TypeOrmModule.forFeature([User]), ScheduleModule.forRoot()],
-  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController, AiController],
+  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController, AiController, ExportController],
   providers: [
     GoogleStrategy,
     AiService,

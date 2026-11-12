@@ -30,7 +30,7 @@ export function Scribble() {
 
 export function WobbleButton({ className = '', children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button type="button" {...rest} className={`wiggle relative min-h-11 border-0 bg-transparent px-5 font-hand text-[19px] text-ink ${className}`}>
+    <button type="button" {...rest} className={`wiggle relative min-h-11 border-0 bg-transparent px-5 font-hand whitespace-nowrap text-[19px] text-ink ${className}`}>
       <Wobble />
       {children}
       <Scribble />
