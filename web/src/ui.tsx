@@ -1,4 +1,52 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useEffect, type ButtonHTMLAttributes, type ReactNode, type RefObject } from 'react';
+
+// Closes a pop-up on a click outside it or on Escape.
+export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (ev: PointerEvent) => !ref.current?.contains(ev.target as Node) && close();
+    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && close();
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  });
+}
+
+// The page top: logo on the left, `children` on the right, then a wavy rule.
+export function Masthead({ children }: { children: ReactNode }) {
+  return (
+    <header className="mx-auto max-w-[1240px] px-8 pt-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-2 pb-[18px]">
+        <div className="flex items-center gap-3.5">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none" aria-hidden="true">
+            <rect x="8" y="5" width="30" height="36" rx="4" stroke="#2A2520" strokeWidth="2.4" />
+            <path d="M4 12 H12 M4 21 H12 M4 30 H12" stroke="#2A2520" strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M17 17 H31 M17 25 H28" stroke="#2A2520" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+          <div>
+            <span className="block font-caveat text-[42px] leading-none font-bold text-ink">intern log</span>
+            <svg width="132" height="12" viewBox="0 0 132 12" fill="none" aria-hidden="true" className="mt-0.5 block">
+              <path d="M3 7 C 25 2, 45 11, 68 6 S 110 3, 129 7" stroke="#2A2520" strokeWidth="2.6" strokeLinecap="round" />
+            </svg>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3.5">{children}</div>
+      </div>
+      <svg width="100%" height="14" viewBox="0 0 1200 14" preserveAspectRatio="none" fill="none" aria-hidden="true" className="block">
+        <path
+          d="M0 8 C 60 2, 120 14, 180 7 S 300 3, 360 8 S 480 13, 540 6 S 660 4, 720 9 S 840 13, 900 6 S 1020 3, 1080 8 S 1160 12, 1200 7"
+          stroke="#2A2520"
+          strokeOpacity="0.55"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </header>
+  );
+}
 
 // The one wobble filter, defined once. Only ever used by <Wobble>.
 export function WobbleFilter() {
@@ -38,16 +86,27 @@ export function WobbleButton({ className = '', children, ...rest }: ButtonHTMLAt
   );
 }
 
-export function Checkbox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
+// Without onToggle it is view-only (the share page): same look, not clickable.
+export function Checkbox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle?: () => void }) {
+  const box = (
+    <span className="relative block size-[22px] transition-transform duration-150 group-hover:-rotate-6 motion-reduce:group-hover:rotate-0">
+      <Wobble radius="rounded-box" />
+      {/* always rendered: the tick draws in when aria-checked flips (index.css), and is hidden when unticked */}
+      <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="tick absolute -top-1.5 left-[3px]">
+        <path d="M3 14 L9 20 L22 4" pathLength="1" stroke="#2A2520" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+  if (!onToggle) {
+    return (
+      <span role="checkbox" aria-checked={checked} aria-readonly="true" aria-label={label} className="flex size-11 flex-none items-center justify-center">
+        {box}
+      </span>
+    );
+  }
   return (
     <button type="button" role="checkbox" aria-checked={checked} aria-label={label} onClick={onToggle} className="group flex size-11 flex-none items-center justify-center border-0 bg-transparent p-0">
-      <span className="relative block size-[22px] transition-transform duration-150 group-hover:-rotate-6 motion-reduce:group-hover:rotate-0">
-        <Wobble radius="rounded-box" />
-        {/* always rendered: the tick draws in when aria-checked flips (index.css), and is hidden when unticked */}
-        <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="tick absolute -top-1.5 left-[3px]">
-          <path d="M3 14 L9 20 L22 4" pathLength="1" stroke="#2A2520" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
+      {box}
     </button>
   );
 }

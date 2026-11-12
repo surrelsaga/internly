@@ -9,11 +9,11 @@ import { dashedBtn, Marker, Tape, Wobble } from './ui';
 
 // A section id, or the reflection tab.
 type Tab = string;
-const REFLECTION = 'reflection';
-const tabClass = (on: boolean) => `min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent'}`;
+export const REFLECTION = 'reflection';
+export const tabClass = (on: boolean) => `min-h-12 rounded-tab border-0 px-6 font-hand text-[23px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent'}`;
 
 // Note tabs and reflection share one position scale; this is every tab id in display order.
-const tabOrder = (i: Pick<Internship, 'sections' | 'reflectionPosition'>) =>
+export const tabOrder = (i: Pick<Internship, 'sections' | 'reflectionPosition'>) =>
   [...i.sections.map((s) => ({ id: s.id, p: s.position })), { id: REFLECTION, p: i.reflectionPosition }].sort((a, b) => a.p - b.p).map((t) => t.id);
 
 // The user's tabs (reflection among them). Rename, delete and drag work as in <Tabs>.
@@ -79,7 +79,8 @@ function TabBar({ internship, tab, setTab }: { internship: Internship; tab: Tab;
   );
 }
 
-function WeekDropdown({ internship, week, lock }: { internship: Internship; week: Week; lock: Week | null }) {
+// `base` is the link prefix: '' for your own weeks, '/share/<token>' on the share page (which has no lock or backfill tag).
+export function WeekDropdown({ internship, week, lock, base = '' }: { internship: { weeks: Week[]; trackingStartDate?: string }; week: Week; lock: Week | null; base?: string }) {
   const [open, setOpen] = useState(false);
   const nowId = nowWeek(internship.weeks).id;
   const off = (w: Week) => !!lock && w.number > lock.number;
@@ -99,7 +100,7 @@ function WeekDropdown({ internship, week, lock }: { internship: Internship; week
           {internship.weeks.map((w) => (
             <a
               key={w.id}
-              href={`/weeks/${w.id}`}
+              href={`${base}/weeks/${w.id}`}
               role="option"
               aria-selected={w.id === week.id}
               aria-disabled={off(w)}
@@ -107,13 +108,13 @@ function WeekDropdown({ internship, week, lock }: { internship: Internship; week
                 e.preventDefault();
                 if (off(w)) return;
                 setOpen(false);
-                go(`/weeks/${w.id}`);
+                go(`${base}/weeks/${w.id}`);
               }}
               className={`flex min-h-12 items-center gap-3 rounded-chip px-3 py-1 text-ink no-underline ${w.id === nowId ? 'bg-highlighter' : ''} ${off(w) ? 'cursor-not-allowed opacity-40' : ''}`}
             >
               <span className="flex-none basis-[76px] font-hand text-[20px]">Week {w.number}</span>
               <span className="flex-1 font-hand text-base text-ink-soft">{shortDay(w.startDate)} to {shortDay(w.endDate)}</span>
-              {w.endDate < internship.trackingStartDate && <span className="font-hand text-sm text-ink-mute">backfill</span>}
+              {internship.trackingStartDate && w.endDate < internship.trackingStartDate &&<span className="font-hand text-sm text-ink-mute">backfill</span>}
               {w.reflected && <span aria-label="reflected" className="font-hand text-[20px]">✓</span>}
             </a>
           ))}

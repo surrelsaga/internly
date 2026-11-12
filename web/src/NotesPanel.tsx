@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { EditorContent, Extension, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
@@ -10,7 +10,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { api, ApiError, uploadImage, type Note, type Section, type WeekDetail } from './api';
 import { REFINE_HINT, RefineButton, RefinePanel, useRefine } from './Refine';
 import { Tabs } from './Tabs';
-import { Wobble } from './ui';
+import { useDismiss, Wobble } from './ui';
 
 // Yellow while active (bold at the caret, list on, ...): driven by aria-pressed, which also outranks bg-transparent.
 const toolBtn = 'flex size-11 items-center justify-center rounded-[9px] border-[1.5px] border-ink/55 bg-transparent p-0 text-ink aria-pressed:border-ink aria-pressed:bg-highlighter';
@@ -41,21 +41,6 @@ const ctrlBox = 'h-11 rounded-[9px] border-[1.5px] border-ink/55 bg-transparent 
 // The pop-up lists: same card look as the week dropdown.
 const popover = 'absolute top-[50px] z-20 rounded-card bg-card p-1.5 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]';
 const optionRow = (on: boolean) => `block w-full rounded-chip border-0 px-3 py-1.5 text-left text-ink ${on ? 'bg-highlighter' : 'bg-transparent hover:bg-highlighter/45'}`;
-
-// Closes a pop-up on a click outside it or on Escape.
-function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (ev: PointerEvent) => !ref.current?.contains(ev.target as Node) && close();
-    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && close();
-    document.addEventListener('pointerdown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  });
-}
 
 // Up/Down move between the options of an open list.
 const arrowKeys = (ev: ReactKeyboardEvent<HTMLElement>) => {
@@ -419,6 +404,10 @@ function NoteEditor({ weekId, note }: { weekId: string; note: Note }) {
   );
 }
 
+// A note chip above the editor (also used on the share page).
+export const chipClass = (on: boolean) =>
+  `min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`;
+
 export default function NotesPanel({ weekId, section, notes, activeId, setActiveId }: { weekId: string; section: Section; notes: Note[]; activeId?: string; setActiveId: (id: string) => void }) {
   const qc = useQueryClient();
   const list = notes.filter((n) => n.sectionId === section.id);
@@ -434,7 +423,7 @@ export default function NotesPanel({ weekId, section, notes, activeId, setActive
         label="Notes"
         noun="note"
         className="mb-4"
-        tabClass={(on) => `min-h-11 rounded-chip border-0 px-[18px] font-hand text-[20px] text-ink ${on ? 'bg-highlighter' : 'swipe bg-transparent shadow-[inset_0_0_0_1.5px_rgba(42,37,32,0.45)]'}`}
+        tabClass={chipClass}
         addClass="min-h-11 rounded-full px-4 text-[19px]"
         maxLength={200}
         items={list.map((n) => ({ id: n.id, name: n.title || 'untitled' }))}

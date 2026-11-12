@@ -13,14 +13,20 @@ export type Internship = {
   // where the reflection tab sits among the note tabs (same scale as Section.position)
   reflectionPosition: number;
   weeks: Week[];
+  // The read-only share link. The token is kept once made, so the link never changes; shareEnabled turns it on/off.
+  shareToken: string | null;
+  shareEnabled: boolean;
 };
+
+// What a visitor with the share link gets.
+export type SharedInternship = Pick<Internship, 'company' | 'startDate' | 'endDate' | 'reflectionPosition' | 'sections' | 'weeks'> & { name: string };
 
 export type Me = { id: string; email: string; name: string };
 export type WeekTask = { id: string; title: string; done: boolean; fromWeek: number | null };
 export type ReflectionData = { learnt: string; wentWell: string; needHelp: string };
 // A notes tab. It belongs to the internship, so every week shows it.
 export type Section = { id: string; name: string; position: number };
-export type Note = { id: string; sectionId: string; title: string; content: object; position: number };
+export type Note = { id: string; sectionId: string; title: string; content: object; position: number; updatedAt: string };
 export type WeekDetail = Week & { tasks: WeekTask[]; reflection: ReflectionData; notes: Note[] };
 
 export class ApiError extends Error {
@@ -35,7 +41,8 @@ export class ApiError extends Error {
 export async function api<T>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
   const res = await fetch(`/api${path}`, { method, ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
   if (!res.ok) {
-    if (res.status === 401 && location.pathname !== '/login') go('/login', true);
+    // Share-link visitors aren't signed in and never need to be.
+    if (res.status === 401 && location.pathname !== '/login' && !location.pathname.startsWith('/share/')) go('/login', true);
     const data = await res.json().catch(() => null);
     const msg = data?.message;
     throw new ApiError(res.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? res.statusText));
