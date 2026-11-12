@@ -22,12 +22,15 @@ export class ShareController {
   // Turns the share link on or off. The token is made the first time and then kept, so the link never changes.
   @Put('share')
   async set(@CurrentUser() user: User, @Body() dto: ShareDto) {
-    const repo = this.ds.getRepository(Internship);
-    const internship = await repo.findOneBy({ userId: user.id });
-    if (!internship) throw new NotFoundException();
-    const shareToken = internship.shareToken ?? randomBytes(24).toString('base64url');
-    await repo.update(internship.id, { shareToken, shareEnabled: dto.enabled });
-    return { shareToken, shareEnabled: dto.enabled };
+    const result = await this.ds.createQueryBuilder().update(Internship)
+      .set({ shareToken: () => 'COALESCE("shareToken", :candidate)', shareEnabled: dto.enabled })
+      .where({ userId: user.id })
+      .setParameter('candidate', randomBytes(24).toString('base64url'))
+      .returning(['shareToken', 'shareEnabled'])
+      .execute();
+    const [share] = result.raw;
+    if (!share) throw new NotFoundException();
+    return share;
   }
 
   // Everything below is public and read-only: anyone with the link, no login. There are no write routes here.

@@ -33,6 +33,16 @@ describe('share link (e2e)', () => {
     await anon().put('/api/share').send({ enabled: true }).expect(401);
   });
 
+  it('concurrent first enables return the same working link', async () => {
+    const [first, second] = await Promise.all([
+      agent.put('/api/share').send({ enabled: true }).expect(200),
+      agent.put('/api/share').send({ enabled: true }).expect(200),
+    ]);
+    expect(first.body).toMatchObject({ shareToken: expect.stringMatching(/^[\w-]{32}$/), shareEnabled: true });
+    expect(second.body).toEqual(first.body);
+    await anon().get(`/api/shared/${first.body.shareToken}`).expect(200);
+  });
+
   it('a visitor sees the latest notes, tasks and reflection, and the link stays the same', async () => {
     const { body: on } = await agent.put('/api/share').send({ enabled: true }).expect(200);
     expect(on.shareEnabled).toBe(true);
