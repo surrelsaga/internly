@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import { Internship, Week } from '../internship/internship.entity.js';
 import { currentWeek } from '../internship/weeks.js';
 import { weekTasks } from '../tasks/queries.js';
-import { User } from '../users/user.entity.js';
+import { ownerEmail, User } from '../users/user.entity.js';
 
 type WeekLike = { id: string; number: number; startDate: string; endDate: string };
 
@@ -127,9 +127,10 @@ export class WeeklyEmail {
 
   // For the owner's manual check. Does not set lastEmailedWeekId, so Friday's email still goes out.
   async sendNow(now = new Date()) {
-    for (const internship of await this.ds.getRepository(Internship).find()) {
-      const weeks = await this.ds.getRepository(Week).find({ where: { internshipId: internship.id } });
-      await this.mailFor(internship, currentWeek(weeks, now));
-    }
+    const user = await this.ds.getRepository(User).findOneByOrFail({ email: ownerEmail() });
+    const internship = await this.ds.getRepository(Internship).findOneBy({ userId: user.id });
+    if (!internship) throw new Error(`Owner ${user.email} has no internship yet; set one up in the app first`);
+    const weeks = await this.ds.getRepository(Week).find({ where: { internshipId: internship.id } });
+    await this.mailFor(internship, currentWeek(weeks, now));
   }
 }

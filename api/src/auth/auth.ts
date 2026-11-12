@@ -10,15 +10,15 @@ import { COOKIE, CurrentUser, Public, signToken, THIRTY_DAYS_MS } from './curren
 type Users = Pick<Repository<User>, 'findOneBy' | 'save' | 'create'>;
 export type GoogleLogin = { googleId: string; email: string; emailVerified: boolean; name: string };
 
-// The login rule. Returns the user to sign in, or null if the login is rejected.
-export async function validateLogin(login: GoogleLogin, allowedEmails: string | undefined, users: Users) {
+// Any verified Google email can sign in. Returns the user, or null if rejected.
+export async function validateLogin(login: GoogleLogin, users: Users) {
   const email = login.email.trim().toLowerCase();
-  const allowed = (allowedEmails ?? '').split(',').map((e) => e.trim().toLowerCase());
-  if (!login.emailVerified || !allowed.includes(email)) return null;
+  if (!login.emailVerified) return null;
   const byGoogleId = await users.findOneBy({ googleId: login.googleId });
   if (byGoogleId) return byGoogleId;
   // First sign-in: the seeded owner (found by email) gets their googleId attached.
   const user = (await users.findOneBy({ email })) ?? users.create({ email, name: login.name });
+  if (user.googleId != null && user.googleId !== login.googleId) return null;
   user.googleId = login.googleId;
   return users.save(user);
 }
@@ -43,7 +43,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const verified = profile._json.email_verified;
     return validateLogin(
       { googleId: profile.id, email, emailVerified: verified === true || verified === 'true', name: profile.displayName || email.split('@')[0] },
-      process.env.ALLOWED_EMAILS,
       this.users,
     );
   }

@@ -1,11 +1,10 @@
 import { DataSource } from 'typeorm';
 import { dataSource } from './data-source.js';
-import { User } from './users/user.entity.js';
+import { ownerEmail, User } from './users/user.entity.js';
 
 // The owner is the first address in ALLOWED_EMAILS. Safe to run repeatedly.
 export async function seedOwner(ds: DataSource) {
-  const email = process.env.ALLOWED_EMAILS?.split(',')[0]?.trim().toLowerCase();
-  if (!email) throw new Error('ALLOWED_EMAILS is empty');
+  const email = ownerEmail();
   await ds.getRepository(User).upsert({ email, name: email.split('@')[0] }, ['email']);
 }
 

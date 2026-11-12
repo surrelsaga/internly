@@ -48,7 +48,7 @@ internly/
 
 You need Node 24 and two PostgreSQL databases (one for dev, one that the tests may wipe). Neon's free tier works.
 
-1. **Configure.** Copy `.env.example` to `.env` at the repo root and fill it in. Locally, `APP_ENV=development`, `APP_URL=http://localhost:5173`, and `GOOGLE_CALLBACK_URL=http://localhost:5173/api/auth/google/callback`. Add that callback URL to your Google OAuth client, and put your Gmail in `ALLOWED_EMAILS`.
+1. **Configure.** Copy `.env.example` to `.env` at the repo root and fill it in. Locally, `APP_ENV=development`, `APP_URL=http://localhost:5173`, and `GOOGLE_CALLBACK_URL=http://localhost:5173/api/auth/google/callback`. Add that callback URL to your Google OAuth client, and put your Gmail in `ALLOWED_EMAILS`; this seeds you as the owner, and any verified Google account can sign in.
 
 2. **Install and migrate.**
    ```
