@@ -12,6 +12,7 @@ import { Notes1700000004000 } from './migrations/1700000004000-Notes.js';
 import { Sections1700000005000 } from './migrations/1700000005000-Sections.js';
 import { ReflectionPosition1700000006000 } from './migrations/1700000006000-ReflectionPosition.js';
 import { TaskSoftDelete1700000007000 } from './migrations/1700000007000-TaskSoftDelete.js';
+import { Share1700000008000 } from './migrations/1700000008000-Share.js';
 
 // One .env at the repo root (absent on Render, where real env vars are set).
 // Real env vars win over the file.
@@ -30,5 +31,5 @@ export const dataSource = new DataSource({
   ssl: true,
   synchronize: false,
   entities: [User, Internship, Week, Task, Reflection, Note, Section],
-  migrations: [Init1700000000000, Internship1700000001000, Tasks1700000002000, Reflections1700000003000, Notes1700000004000, Sections1700000005000, ReflectionPosition1700000006000, TaskSoftDelete1700000007000],
+  migrations: [Init1700000000000, Internship1700000001000, Tasks1700000002000, Reflections1700000003000, Notes1700000004000, Sections1700000005000, ReflectionPosition1700000006000, TaskSoftDelete1700000007000, Share1700000008000],
 });

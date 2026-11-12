@@ -42,6 +42,23 @@ class CreateInternshipDto {
 // A uuid that matches nothing is a 404, not a 400.
 const weekId = new ParseUUIDPipe({ errorHttpStatusCode: 404 });
 
+// The internship's weeks (each marked reflected when "What I learnt" is not blank) and its note tabs.
+// Shared with the read-only share page.
+export async function weeksAndSections(ds: DataSource, internshipId: string) {
+  const weeks = await ds.getRepository(Week).find({ where: { internshipId }, order: { number: 'ASC' } });
+  const reflections = await ds.getRepository(Reflection).find({ select: { weekId: true, learnt: true }, where: { weekId: In(weeks.map((w) => w.id)) } });
+  const reflected = new Set(reflections.filter((r) => r.learnt.trim()).map((r) => r.weekId));
+  const sections = await ds.getRepository(Section).find({ select: { id: true, name: true, position: true }, where: { internshipId }, order: { position: 'ASC' } });
+  return { sections, weeks: weeks.map((w) => ({ ...w, reflected: reflected.has(w.id) })) };
+}
+
+// One week with its tasks, reflection and notes. Shared with the read-only share page.
+export async function weekDetail(ds: DataSource, week: Week) {
+  const reflection = await ds.getRepository(Reflection).findOneBy({ weekId: week.id });
+  const notes = await ds.getRepository(Note).find({ where: { weekId: week.id }, order: { position: 'ASC' } });
+  return { ...week, tasks: await weekTasks(ds, week), reflection: pickReflection(reflection), notes };
+}
+
 @Controller()
 export class InternshipController {
   constructor(private ds: DataSource) {}
@@ -69,12 +86,7 @@ export class InternshipController {
   async get(@CurrentUser() user: User) {
     const internship = await this.ds.getRepository(Internship).findOneBy({ userId: user.id });
     if (!internship) throw new NotFoundException();
-    const weeks = await this.ds.getRepository(Week).find({ where: { internshipId: internship.id }, order: { number: 'ASC' } });
-    // reflected = "What I learnt" is not blank
-    const reflections = await this.ds.getRepository(Reflection).find({ select: { weekId: true, learnt: true }, where: { weekId: In(weeks.map((w) => w.id)) } });
-    const reflected = new Set(reflections.filter((r) => r.learnt.trim()).map((r) => r.weekId));
-    const sections = await this.ds.getRepository(Section).find({ select: { id: true, name: true, position: true }, where: { internshipId: internship.id }, order: { position: 'ASC' } });
-    return { ...internship, sections, weeks: weeks.map((w) => ({ ...w, reflected: reflected.has(w.id) })) };
+    return { ...internship, ...(await weeksAndSections(this.ds, internship.id)) };
   }
 
   // Declared before :id so ':id' doesn't swallow it.
@@ -91,8 +103,6 @@ export class InternshipController {
   async week(@CurrentUser() user: User, @Param('id', weekId) id: string) {
     const week = await ownedWeek(this.ds, user.id, id);
     if (!week) throw new NotFoundException();
-    const reflection = await this.ds.getRepository(Reflection).findOneBy({ weekId: week.id });
-    const notes = await this.ds.getRepository(Note).find({ where: { weekId: week.id }, order: { position: 'ASC' } });
-    return { ...week, tasks: await weekTasks(this.ds, week), reflection: pickReflection(reflection), notes };
+    return weekDetail(this.ds, week);
   }
 }

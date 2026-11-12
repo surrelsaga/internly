@@ -13,12 +13,13 @@ import { InternshipController } from './internship/internship.controller.js';
 import { NotesController } from './notes/notes.controller.js';
 import { UploadsController } from './notes/uploads.controller.js';
 import { ReflectionController } from './reflection/reflection.controller.js';
+import { ShareController } from './share/share.controller.js';
 import { TasksController } from './tasks/tasks.controller.js';
 import { User } from './users/user.entity.js';
 
 @Module({
   imports: [TypeOrmModule.forRoot(dataSource.options), TypeOrmModule.forFeature([User]), ScheduleModule.forRoot()],
-  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController, AiController, ExportController],
+  controllers: [AppController, AuthController, InternshipController, TasksController, ReflectionController, NotesController, UploadsController, AiController, ExportController, ShareController],
   providers: [
     GoogleStrategy,
     AiService,

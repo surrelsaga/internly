@@ -28,6 +28,13 @@ export class Internship {
   // Where the reflection tab sits among the note tabs (same scale as Section.position).
   @Column({ type: 'int', default: 0 })
   reflectionPosition: number;
+
+  // The read-only share link's secret. Made the first time sharing is turned on, then kept.
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  shareToken: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  shareEnabled: boolean;
 }
 
 @Entity('weeks')
