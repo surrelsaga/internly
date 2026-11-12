@@ -1,7 +1,20 @@
-import { weekToCatchUp, weeklyEmail } from './email.js';
+import { EmailService, WeeklyEmail, weekToCatchUp, weeklyEmail } from './email.js';
 
 const w1 = { id: 'w1', number: 1, startDate: '2026-10-05', endDate: '2026-10-11' };
 const w2 = { id: 'w2', number: 2, startDate: '2026-10-12', endDate: '2026-10-18' };
+
+describe('sendNow', () => {
+  it('explains when the owner has no internship', async () => {
+    const repo = { findOneByOrFail: async () => ({ id: 'owner', email: 'me@example.com' }), findOneBy: async () => null };
+    const ds = { getRepository: () => repo } as any;
+    vi.stubEnv('ALLOWED_EMAILS', 'me@example.com');
+    try {
+      await expect(new WeeklyEmail(ds, new EmailService()).sendNow()).rejects.toThrow('Owner me@example.com has no internship yet; set one up in the app first');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
 
 describe('weeklyEmail', () => {
   const base = { name: 'Daniel Nguyen', company: 'Speedback', appUrl: 'https://app.test' };

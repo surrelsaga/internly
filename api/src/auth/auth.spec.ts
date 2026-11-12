@@ -16,31 +16,30 @@ function fakeUsers(...seed: Partial<User>[]) {
 }
 
 const login = { googleId: 'g1', email: 'Me@Example.com', emailVerified: true, name: 'Me' };
-const allowed = 'me@example.com, other@example.com';
 
 describe('validateLogin', () => {
-  it('rejects an email that is not on the allowlist', async () => {
-    const users = fakeUsers();
-    expect(await validateLogin({ ...login, email: 'stranger@example.com' }, allowed, users)).toBeNull();
-    expect(users.rows).toHaveLength(0);
-  });
-
   it('rejects an unverified email', async () => {
-    expect(await validateLogin({ ...login, emailVerified: false }, allowed, fakeUsers())).toBeNull();
+    expect(await validateLogin({ ...login, emailVerified: false }, fakeUsers())).toBeNull();
   });
 
   it('attaches the googleId to the seeded user instead of creating a new one', async () => {
     const users = fakeUsers({ email: 'me@example.com', name: 'me' });
-    const user = await validateLogin(login, allowed, users);
+    const user = await validateLogin(login, users);
     expect(user).toMatchObject({ id: 'u0', googleId: 'g1' });
     expect(users.rows).toHaveLength(1);
   });
 
-  it('finds a returning user by googleId, and creates a new allowed user', async () => {
+  it('rejects a different Google account using an already linked email', async () => {
+    const users = fakeUsers({ email: 'me@example.com', googleId: 'g-old' });
+    expect(await validateLogin({ ...login, googleId: 'g-new', email: 'me@example.com' }, users)).toBeNull();
+    expect(users.rows[0].googleId).toBe('g-old');
+  });
+
+  it('finds a returning user by googleId, and creates a new user', async () => {
     const users = fakeUsers({ email: 'me@example.com', name: 'me', googleId: 'g1' });
-    expect(await validateLogin(login, allowed, users)).toMatchObject({ id: 'u0' });
-    const created = await validateLogin({ ...login, googleId: 'g2', email: 'other@example.com' }, allowed, users);
-    expect(created).toMatchObject({ email: 'other@example.com', googleId: 'g2' });
+    expect(await validateLogin(login, users)).toMatchObject({ id: 'u0' });
+    const created = await validateLogin({ ...login, googleId: 'g2', email: 'stranger@example.com' }, users);
+    expect(created).toMatchObject({ email: 'stranger@example.com', googleId: 'g2' });
     expect(users.rows).toHaveLength(2);
   });
 });

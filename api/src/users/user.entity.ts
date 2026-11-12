@@ -1,5 +1,11 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
+export function ownerEmail(): string {
+  const email = process.env.ALLOWED_EMAILS?.split(',')[0]?.trim().toLowerCase();
+  if (!email) throw new Error('ALLOWED_EMAILS is empty');
+  return email;
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
