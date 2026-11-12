@@ -125,14 +125,14 @@ export default function SharedPage() {
     if (shared.data && !weekId) go(`${base}/weeks/${nowWeek(shared.data.weeks).id}`, true);
   }, [shared.data, weekId, base]);
 
-  const title = shared.data ? `${shared.data.name}'s internship at ${shared.data.company}` : 'intern log';
+  const title = shared.data && !notShared(shared.error) ? `${shared.data.name}'s internship at ${shared.data.company}` : '';
   useEffect(() => {
-    document.title = shared.data ? `${title} · Intern Log` : 'Intern Log';
-  }, [shared.data, title]);
+    document.title = title ? `${title} · Intern Log` : 'Intern Log';
+  }, [title]);
 
   const masthead = (
     <Masthead>
-      {shared.data && <span className="font-hand text-[19px] text-ink-soft">{title}</span>}
+      {title && <span className="font-hand text-[19px] text-ink-soft">{title}</span>}
       <span className="rounded-tab bg-highlighter px-4 py-1 font-hand text-[19px]">view only</span>
     </Masthead>
   );
