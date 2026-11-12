@@ -43,7 +43,7 @@ export default function ShareButton({ internship }: { internship: Internship }) 
         )}
       </WobbleButton>
       {open && (
-        <div role="dialog" aria-label="Share" className="absolute top-[56px] right-0 z-30 w-[340px] max-w-[calc(100vw-32px)] rounded-card bg-card p-4 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)]">
+        <div role="dialog" aria-label="Share" className="absolute top-[56px] left-0 z-30 w-[340px] max-w-[calc(100vw-32px)] rounded-card bg-card p-4 shadow-[0_0_0_2px_#2A2520,4px_6px_0_rgba(42,37,32,0.15)] sm:right-0 sm:left-auto">
           <div className="flex items-center gap-1">
             <Checkbox checked={on} label="Anyone with the link can view" onToggle={() => !toggle.isPending && toggle.mutate(!on)} />
             <span className="font-hand text-[19px]">Anyone with the link can view</span>

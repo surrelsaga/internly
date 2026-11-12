@@ -20,7 +20,7 @@ export function Masthead({ children }: { children: ReactNode }) {
   return (
     <header className="mx-auto max-w-[1240px] px-8 pt-5">
       <div className="flex flex-wrap items-center justify-between gap-4 pt-2 pb-[18px]">
-        <div className="flex items-center gap-3.5">
+        <div className="flex shrink-0 items-center gap-3.5">
           <svg width="46" height="46" viewBox="0 0 46 46" fill="none" aria-hidden="true">
             <rect x="8" y="5" width="30" height="36" rx="4" stroke="#2A2520" strokeWidth="2.4" />
             <path d="M4 12 H12 M4 21 H12 M4 30 H12" stroke="#2A2520" strokeWidth="2.4" strokeLinecap="round" />
@@ -33,7 +33,7 @@ export function Masthead({ children }: { children: ReactNode }) {
             </svg>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3.5">{children}</div>
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-3.5 sm:w-auto">{children}</div>
       </div>
       <svg width="100%" height="14" viewBox="0 0 1200 14" preserveAspectRatio="none" fill="none" aria-hidden="true" className="block">
         <path
